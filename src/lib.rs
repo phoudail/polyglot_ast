@@ -16,7 +16,6 @@ mod util {
 }
 
 mod polyglot_tree;
-mod polyglot_zipper;
 
 #[cfg(test)]
 mod tests {

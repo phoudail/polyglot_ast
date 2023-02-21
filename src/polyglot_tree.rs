@@ -5,14 +5,19 @@ use crate::util::InvalidArgumentError;
 
 use super::util;
 
+mod polyglot_zipper;
+
+use polyglot_zipper::*;
+
 struct PolyglotTree<'a> {
     tree: tree_sitter::Tree,
-    code: &'a str,
+    code: String,
     language: tree_sitter::Language,
     node_to_subtrees_map: HashMap<tree_sitter::Node<'a>, PolyglotTree<'a>>,
 }
 
 impl<'a> PolyglotTree<'a> {
+
 
     pub fn from(code: &'a str, language: &str) -> Result<PolyglotTree<'a>, InvalidArgumentError> {
         let mut parser = Parser::new();
@@ -24,13 +29,39 @@ impl<'a> PolyglotTree<'a> {
         
         Ok(PolyglotTree {
             tree,
-            code,
+            code: String::from(code),
             language: lang,
             node_to_subtrees_map: HashMap::new(),
-        })
+        }.build_polyglot_tree())
     }
 
-    pub fn node_to_code(&self, node: tree_sitter::Node<'a>) -> &'a str {
+    pub fn node_to_code(&self, node: tree_sitter::Node<'a>) -> &str {
         &self.code[node.start_byte()..node.end_byte()]
-    }    
+    }
+
+    fn build_polyglot_tree(self) -> PolyglotTree<'a> {
+        let root = self.tree.root_node();
+        self.build_polyglot_links(root);
+        self
+    }
+
+    fn build_polyglot_links(&self, node: tree_sitter::Node) {
+        if is_polyglot_call(node) {
+            self.make_subtree(node);
+        } else {
+            match node.child(0) {
+                Some(child) => self.build_polyglot_links(child),
+                None => ()
+            }
+            match node.next_sibling() {
+                Some(sibling) => self.build_polyglot_links(sibling),
+                None => ()
+            }
+        }
+    }
+
+    fn make_subtree(&self, node: tree_sitter::Node) {
+        //TODO
+    }
+
 }
