@@ -7,19 +7,16 @@ use tree_sitter::{Node, Parser, Tree};
 
 mod polyglot_zipper;
 
-pub struct PolyglotTree<'a> {
+pub struct PolyglotTree {
     tree: Tree,
     code: String,
     working_dir: PathBuf,
     language: Language,
-    node_to_subtrees_map: HashMap<Node<'a>, PolyglotTree<'a>>,
+    node_to_subtrees_map: HashMap<Node, PolyglotTree>,
 }
 
-impl<'a> PolyglotTree<'a> {
-    pub fn from(
-        code: &'a str,
-        language: &str,
-    ) -> Result<PolyglotTree<'a>, util::InvalidArgumentError> {
+impl PolyglotTree {
+    pub fn from(code: &str, language: &str) -> Result<PolyglotTree, util::InvalidArgumentError> {
         let mut parser = Parser::new();
         let lang = util::language_string_to_treesitter(language)?;
 
@@ -31,18 +28,21 @@ impl<'a> PolyglotTree<'a> {
             .parse(code, None)
             .expect("Error parsing the language code.");
 
-        let &mut result = PolyglotTree {
+        let mut result = PolyglotTree {
             tree,
             code: String::from(code),
             working_dir: PathBuf::new(),
             language: util::language_string_to_enum(language)?,
             node_to_subtrees_map: HashMap::new(),
-        }
-        .build_polyglot_tree();
-        todo!()
+        };
+
+        let mut map = HashMap::new();
+        result.build_polyglot_tree(&mut map);
+        result.node_to_subtrees_map = map;
+        Ok(result)
     }
 
-    pub fn node_to_code(&self, node: Node<'a>) -> &str {
+    pub fn node_to_code(&self, node: Node) -> &str {
         &self.code[node.start_byte()..node.end_byte()]
     }
 
@@ -50,27 +50,28 @@ impl<'a> PolyglotTree<'a> {
         self.tree.root_node()
     }
 
-    fn build_polyglot_tree(&mut self) -> &mut PolyglotTree<'a> {
+    fn build_polyglot_tree(&self, node_tree_map: &mut HashMap<Node, PolyglotTree>) {
         let root = self.tree.root_node();
-        self.build_polyglot_links(root);
-        self
+        self.build_polyglot_links(node_tree_map, root);
     }
 
-    fn build_polyglot_links(&mut self, node: Node) {
-        if self.is_polyglot_call(node) && self.make_subtree(node).is_none() {
-            eprintln!(
-                "Warning: unable to make subtree for polyglot call at position {}",
-                node.start_position()
-            )
+    fn build_polyglot_links(&self, node_tree_map: &mut HashMap<Node, PolyglotTree>, node: Node) {
+        if self.is_polyglot_call(node) {
+            if self.make_subtree(node_tree_map, node).is_none() {
+                eprintln!(
+                    "Warning: unable to make subtree for polyglot call at position {}",
+                    node.start_position()
+                )
+            }
         } else {
             match node.child(0) {
-                Some(child) => self.build_polyglot_links(child),
+                Some(child) => self.build_polyglot_links(node_tree_map, child),
                 None => (),
-            }
+            };
             match node.next_sibling() {
-                Some(sibling) => self.build_polyglot_links(sibling),
+                Some(sibling) => self.build_polyglot_links(node_tree_map, sibling),
                 None => (),
-            }
+            };
         }
     }
 
@@ -91,8 +92,11 @@ impl<'a> PolyglotTree<'a> {
         }
     }
 
-
-    fn make_subtree(&mut self, node: Node<'a>) -> Option<()> {
+    fn make_subtree(
+        &self,
+        node_tree_map: &mut HashMap<Node, PolyglotTree>,
+        node: Node,
+    ) -> Option<()> {
         let mut new_code: Option<&str> = None;
         let mut new_lang: Option<&str> = None;
         match self.language {
@@ -136,15 +140,12 @@ impl<'a> PolyglotTree<'a> {
             Language::JavaScript => todo!(),
             Language::Java => todo!(),
         }
-        
+
         let subtree = match PolyglotTree::from(new_code?, new_lang?) {
             Ok(t) => t,
             Err(_) => return None,
         };
-        self.node_to_subtrees_map.insert(node, subtree);
-
+        node_tree_map.insert(node, subtree);
         Some(())
     }
-
-    
 }
