@@ -43,7 +43,7 @@ impl PolyglotTree {
         Some(result)
     }
 
-    pub fn apply(&self, processor: impl polyglot_processor::PolygotProcessor) {
+    pub fn apply(&self, processor: &mut impl polyglot_processor::PolygotProcessor) {
         processor.process(polyglot_zipper::PolyglotZipper::from(self))
     }
 
