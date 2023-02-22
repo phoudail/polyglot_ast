@@ -115,11 +115,11 @@ impl PolyglotZipper<'_> {
         }
     }
 
-    pub fn next_sibling(&self, i: usize) -> Option<PolyglotZipper> {
+    pub fn next_sibling(&self) -> Option<PolyglotZipper> {
         Some(Self::_from(self.tree, self.node().next_sibling()?))
     }
 
-    pub fn prev_sibling(&self, i: usize) -> Option<PolyglotZipper> {
+    pub fn prev_sibling(&self) -> Option<PolyglotZipper> {
         Some(Self::_from(self.tree, self.node().prev_sibling()?))
     }
 }
