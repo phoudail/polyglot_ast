@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use tree_sitter::{Node, Parser, Tree};
 
+pub mod polyglot_processor;
 pub mod polyglot_zipper;
 
 pub struct PolyglotTree {
@@ -16,10 +17,7 @@ pub struct PolyglotTree {
 }
 
 impl PolyglotTree {
-    pub fn from(
-        code: impl ToString,
-        language: Language,
-    ) -> Option<PolyglotTree> {
+    pub fn from(code: impl ToString, language: Language) -> Option<PolyglotTree> {
         let code = code.to_string();
 
         let mut parser = Parser::new();
@@ -29,8 +27,7 @@ impl PolyglotTree {
             .set_language(ts_lang)
             .expect("Error loading the language grammar into the parser; consider verifying your versions of the grammar and tree-sitter are compatible.");
 
-        let tree = parser
-            .parse(code.as_str(), None)?;
+        let tree = parser.parse(code.as_str(), None)?;
 
         let mut result = PolyglotTree {
             tree,
@@ -46,13 +43,15 @@ impl PolyglotTree {
         Some(result)
     }
 
+    pub fn apply(&self, processor: impl polyglot_processor::PolygotProcessor) {
+        processor.process(polyglot_zipper::PolyglotZipper::from(self))
+    }
 
-
-    pub fn node_to_code(&self, node: Node) -> &str {
+    fn node_to_code(&self, node: Node) -> &str {
         &self.code[node.start_byte()..node.end_byte()]
     }
 
-    pub fn root_node(&self) -> Node {
+    fn root_node(&self) -> Node {
         self.tree.root_node()
     }
 
