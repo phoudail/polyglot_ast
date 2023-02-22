@@ -5,8 +5,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use tree_sitter::{Node, Parser, Tree};
 
-mod polyglot_zipper;
-use polyglot_zipper::PolyglotZipper;
+pub mod polyglot_zipper;
 
 pub struct PolyglotTree {
     tree: Tree,
@@ -49,9 +48,7 @@ impl PolyglotTree {
         Ok(result)
     }
 
-    pub fn root_zipper(&self) -> polyglot_zipper::PolyglotZipper {
-        PolyglotZipper::from(self, self.root_node())
-    }
+
 
     pub fn node_to_code(&self, node: Node) -> &str {
         &self.code[node.start_byte()..node.end_byte()]
@@ -67,7 +64,7 @@ impl PolyglotTree {
     }
 
     fn build_polyglot_links(&self, node_tree_map: &mut HashMap<usize, PolyglotTree>, node: Node) {
-        if self.is_polyglot_call(node) {
+        if self.is_polyglot_eval_call(node) {
             if self.make_subtree(node_tree_map, node).is_none() {
                 eprintln!(
                     "Warning: unable to make subtree for polyglot call at position {}",
@@ -86,7 +83,7 @@ impl PolyglotTree {
         }
     }
 
-    pub fn is_polyglot_call(&self, node: Node) -> bool {
+    fn is_polyglot_eval_call(&self, node: Node) -> bool {
         match self.language {
             Language::Python => {
                 node.kind().eq("call")
@@ -95,6 +92,40 @@ impl PolyglotTree {
                         .map(|child| {
                             child.kind().eq("attribute")
                                 && self.node_to_code(child).eq("polyglot.eval")
+                        })
+                        .unwrap_or(false)
+            }
+            Language::JavaScript => todo!(),
+            Language::Java => todo!(),
+        }
+    }
+
+    fn is_polyglot_import_call(&self, node: Node) -> bool {
+        match self.language {
+            Language::Python => {
+                node.kind().eq("call")
+                    && node
+                        .child(0)
+                        .map(|child| {
+                            child.kind().eq("attribute")
+                                && self.node_to_code(child).eq("polyglot.import")
+                        })
+                        .unwrap_or(false)
+            }
+            Language::JavaScript => todo!(),
+            Language::Java => todo!(),
+        }
+    }
+
+    fn is_polyglot_export_call(&self, node: Node) -> bool {
+        match self.language {
+            Language::Python => {
+                node.kind().eq("call")
+                    && node
+                        .child(0)
+                        .map(|child| {
+                            child.kind().eq("attribute")
+                                && self.node_to_code(child).eq("polyglot.export")
                         })
                         .unwrap_or(false)
             }
