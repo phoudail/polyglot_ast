@@ -24,6 +24,10 @@ fn main() {
     //         .expect("Error loading Python grammar");
     //     let parsed = parser.parse(code, None);
     //     println!("{:#?}", parsed);
-    let tree = PolyglotTree::from("x = 42\npolyglot.eval(path=\"file\", language=x)", "python").expect("Python assignment should be properly parsed");
+    let tree = PolyglotTree::from(
+        "x = 42\npolyglot.eval(path=\"GraalSamples/test_b.py\", language=\"python\")",
+        "python",
+    )
+    .expect("Python assignment should be properly parsed");
     println!("{}", tree.node_to_code(tree.root_node()))
 }
