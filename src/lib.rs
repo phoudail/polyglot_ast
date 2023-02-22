@@ -12,10 +12,10 @@ pub mod util {
     }
 
     pub fn language_string_to_treesitter(lang: &str) -> Result<tree_sitter::Language, InvalidArgumentError> {
-        Ok(language_enum_to_treesitter(language_string_to_enum(lang)?))
+        Ok(language_enum_to_treesitter(&language_string_to_enum(lang)?))
     }
 
-    pub fn language_enum_to_treesitter(lang: Language) -> tree_sitter::Language {
+    pub fn language_enum_to_treesitter(lang: &Language) -> tree_sitter::Language {
         match lang {
             Language::Python => tree_sitter_python::language(),
             Language::JavaScript => tree_sitter_javascript::language(),

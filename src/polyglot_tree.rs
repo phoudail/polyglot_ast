@@ -18,34 +18,32 @@ pub struct PolyglotTree {
 impl PolyglotTree {
     pub fn from(
         code: impl ToString,
-        language: impl ToString,
-    ) -> Result<PolyglotTree, util::InvalidArgumentError> {
+        language: Language,
+    ) -> Option<PolyglotTree> {
         let code = code.to_string();
-        let language = language.to_string();
 
         let mut parser = Parser::new();
-        let lang = util::language_string_to_treesitter(language.as_str())?;
+        let ts_lang = util::language_enum_to_treesitter(&language);
 
         parser
-            .set_language(lang)
-            .expect("Error loading the language grammar into the parser.");
+            .set_language(ts_lang)
+            .expect("Error loading the language grammar into the parser; consider verifying your versions of the grammar and tree-sitter are compatible.");
 
         let tree = parser
-            .parse(code.as_str(), None)
-            .expect("Error parsing the language code.");
+            .parse(code.as_str(), None)?;
 
         let mut result = PolyglotTree {
             tree,
             code,
             working_dir: PathBuf::new(),
-            language: util::language_string_to_enum(language.as_str())?,
+            language,
             node_to_subtrees_map: HashMap::new(),
         };
 
         let mut map = HashMap::new();
         result.build_polyglot_tree(&mut map);
         result.node_to_subtrees_map = map;
-        Ok(result)
+        Some(result)
     }
 
 
@@ -165,12 +163,16 @@ impl PolyglotTree {
             },
         }
 
-        let subtree = match PolyglotTree::from(new_code, new_lang) {
-            Ok(t) => t,
+        let new_lang = match util::language_string_to_enum(new_lang.as_str()) {
+            Ok(s) => s,
             Err(_) => return None,
         };
+
+        let subtree = PolyglotTree::from(new_code, new_lang)?;
+
         node_tree_map.insert(node.id(), subtree);
-        Some(())
+
+        Some(()) // signale everything went right
     }
 
     fn handle_js_args(&self, _node: &Node) -> Option<(String, String)> {

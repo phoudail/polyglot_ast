@@ -26,8 +26,7 @@ fn main() {
     //     println!("{:#?}", parsed);
     let tree = PolyglotTree::from(
         "x = 42\npolyglot.eval(path=\"GraalSamples/test_b.py\", language=\"python\")",
-        "python",
-    )
-    .expect("Python assignment should be properly parsed");
+        polyglot_ast::util::Language::Python,
+    ).expect("Should not have parsing issues");
     println!("{}", tree.node_to_code(tree.root_node()))
 }
