@@ -2,7 +2,7 @@ use polyglot_ast::polyglot_tree::PolyglotTree;
 
 fn main() {
     let tree = PolyglotTree::from(
-        "x = 42\npolyglot.eval(path=\"GraalSamples/test_b.py\", language=\"python\")",
+        "x = 42\npolyglot.eval(path=\"GraalSamples/test_a.py\", language=\"python\")",
         polyglot_ast::util::Language::Python,
     )
     .expect("Should not have parsing issues");

@@ -11,10 +11,10 @@ pub struct PolyglotZipper<'a> {
 
 impl PolyglotZipper<'_> {
     pub fn from<'a>(tree: &'a PolyglotTree) -> PolyglotZipper<'a> {
-        Self::_from(tree, tree.root_node())
+        Self::from_impl(tree, tree.root_node())
     }
 
-    fn _from<'a>(tree: &'a PolyglotTree, node: Node<'a>) -> PolyglotZipper<'a> {
+    fn from_impl<'a>(tree: &'a PolyglotTree, node: Node<'a>) -> PolyglotZipper<'a> {
         PolyglotZipper {
             tree,
             node: node.walk(),
@@ -111,15 +111,15 @@ impl PolyglotZipper<'_> {
                 node: t.root_node().walk(),
             }),
 
-            None => Some(Self::_from(self.tree, self.node.node().child(i)?)),
+            None => Some(Self::from_impl(self.tree, self.node.node().child(i)?)),
         }
     }
 
     pub fn next_sibling(&self) -> Option<PolyglotZipper> {
-        Some(Self::_from(self.tree, self.node().next_sibling()?))
+        Some(Self::from_impl(self.tree, self.node().next_sibling()?))
     }
 
     pub fn prev_sibling(&self) -> Option<PolyglotZipper> {
-        Some(Self::_from(self.tree, self.node().prev_sibling()?))
+        Some(Self::from_impl(self.tree, self.node().prev_sibling()?))
     }
 }
