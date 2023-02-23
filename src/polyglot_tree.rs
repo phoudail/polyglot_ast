@@ -43,6 +43,72 @@ impl PolyglotTree {
         Some(result)
     }
 
+    pub fn from_directory(
+        code: impl ToString,
+        language: Language,
+        working_dir: PathBuf,
+    ) -> Option<PolyglotTree> {
+        let code = code.to_string();
+
+        let mut parser = Parser::new();
+        let ts_lang = util::language_enum_to_treesitter(&language);
+
+        parser
+            .set_language(ts_lang)
+            .expect("Error loading the language grammar into the parser; consider verifying your versions of the grammar and tree-sitter are compatible.");
+
+        let tree = parser.parse(code.as_str(), None)?;
+
+        let mut result = PolyglotTree {
+            tree,
+            code,
+            working_dir,
+            language,
+            node_to_subtrees_map: HashMap::new(),
+        };
+
+        let mut map = HashMap::new();
+        result.build_polyglot_tree(&mut map);
+        result.node_to_subtrees_map = map;
+        Some(result)
+    }
+
+    pub fn from_path(path: PathBuf, language: Language) -> Option<PolyglotTree> {
+        let file = path.clone();
+        let code = match std::fs::read_to_string(path) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!(
+                    "Warning: unable to create tree for file {} due to the following error: {e}",
+                    file.to_str()?
+                );
+                return None;
+            }
+        };
+
+        let mut parser = Parser::new();
+        let ts_lang = util::language_enum_to_treesitter(&language);
+
+        parser
+            .set_language(ts_lang)
+            .expect("Error loading the language grammar into the parser; consider verifying your versions of the grammar and tree-sitter are compatible.");
+
+        let tree = parser.parse(code.as_str(), None)?;
+
+        let mut result = PolyglotTree {
+            tree,
+            code,
+            working_dir: file.parent()?.to_path_buf(),
+            language,
+            node_to_subtrees_map: HashMap::new(),
+        };
+
+        let mut map = HashMap::new();
+        result.build_polyglot_tree(&mut map);
+        result.node_to_subtrees_map = map;
+        Some(result)
+    }
+
     pub fn apply(&self, processor: &mut impl polyglot_processor::PolygotProcessor) {
         processor.process(polyglot_zipper::PolyglotZipper::from(self))
     }
@@ -141,38 +207,14 @@ impl PolyglotTree {
     }
 
     fn make_subtree(&self, node_tree_map: &mut HashMap<usize, PolyglotTree>, node: Node) -> bool {
-        let new_code: String;
-        let new_lang: String;
-        match self.language {
-            Language::Python => match self.recover_args_python(&node) {
-                Some((s1, s2)) => {
-                    new_code = s1;
-                    new_lang = s2;
-                }
-                None => return false,
-            },
-            Language::JavaScript => match self.recover_args_js(&node) {
-                Some((s1, s2)) => {
-                    new_code = s1;
-                    new_lang = s2;
-                }
-                None => return false,
-            },
-            Language::Java => match self.recover_args_java(&node) {
-                Some((s1, s2)) => {
-                    new_code = s1;
-                    new_lang = s2;
-                }
-                None => return false,
-            },
-        }
-
-        let new_lang = match util::language_string_to_enum(new_lang.as_str()) {
-            Ok(s) => s,
-            Err(_) => return false,
+        let subtree: PolyglotTree;
+        let result: Option<PolyglotTree> = match self.language {
+            Language::Python => self.make_subtree_python(&node),
+            Language::JavaScript => self.make_subtree_js(&node),
+            Language::Java => self.make_subtree_java(&node),
         };
 
-        let subtree = match PolyglotTree::from(new_code, new_lang) {
+        subtree = match result {
             Some(t) => t,
             None => return false,
         };
@@ -182,12 +224,13 @@ impl PolyglotTree {
         true // signale everything went right
     }
 
-    fn recover_args_python(&self, node: &Node) -> Option<(String, String)> {
+    fn make_subtree_python(&self, node: &Node) -> Option<PolyglotTree> {
         let arg1 = node.child(1)?.child(1)?.child(0)?;
         let arg2 = node.child(1)?.child(3)?.child(0)?;
 
         let mut new_code: Option<String> = None;
         let mut new_lang: Option<String> = None;
+        let mut path: Option<PathBuf> = None;
 
         match self.node_to_code(arg1) {
             "path" => {
@@ -196,20 +239,9 @@ impl PolyglotTree {
                     .chars();
                 tmp.next();
                 tmp.next_back();
-                let mut path = self.working_dir.clone();
+                path = Some(self.working_dir.clone());
                 let new_path = match PathBuf::from_str(tmp.as_str()) {
                     Ok(p) => p,
-                    Err(e) => {
-                        eprintln!(
-                                    "Warning: could not build subtree for {} because of the following error: {e}",
-                                    tmp.as_str()
-                                );
-                        return None;
-                    }
-                };
-                path.push(new_path);
-                new_code = Some(match std::fs::read_to_string(path) {
-                    Ok(s) => s,
                     Err(e) => {
                         eprintln!(
                             "Warning: could not build subtree for {} because of error {e}",
@@ -217,7 +249,8 @@ impl PolyglotTree {
                         );
                         return None;
                     }
-                });
+                };
+                path = path.map(|mut p| {p.push(new_path); p} );
             }
 
             "language" => {
@@ -253,7 +286,7 @@ impl PolyglotTree {
                     .chars();
                 tmp.next();
                 tmp.next_back();
-                let mut path = self.working_dir.clone();
+                path = Some(self.working_dir.clone());
                 let new_path = match PathBuf::from_str(tmp.as_str()) {
                     Ok(p) => p,
                     Err(e) => {
@@ -264,17 +297,7 @@ impl PolyglotTree {
                         return None;
                     }
                 };
-                path.push(new_path);
-                new_code = Some(match std::fs::read_to_string(path) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        eprintln!(
-                            "Warning: could not build subtree for {} because of error {e}",
-                            tmp.as_str()
-                        );
-                        return None;
-                    }
-                });
+                path = path.map(|mut p| {p.push(new_path); p} );
             }
 
             "language" => {
@@ -304,16 +327,15 @@ impl PolyglotTree {
             }
         }
 
-        let new_code = match new_code {
-            Some(s) => s,
-            None => {
-                eprintln!("Warning: no code (as \"path\" or \"string\") argument provided for polyglot call at position {}", node.start_position());
-                return None;
-            }
-        };
 
         let new_lang = match new_lang {
-            Some(s) => s,
+            Some(s) => match util::language_string_to_enum(s.as_str()) {
+                Ok(l) => l,
+                Err(e) => {
+                    eprintln!("Could not convert argument {s} to language due to error: {e}");
+                    return None;
+                }
+            },
             None => {
                 eprintln!(
                     "Warning: no language argument provided for polyglot call at position {}",
@@ -323,16 +345,26 @@ impl PolyglotTree {
             }
         };
 
-        Some((new_code, new_lang))
+        let subtree = match new_code {
+            Some(c) => Self::from_directory(c, new_lang, self.working_dir.clone())?,
+            None => Self::from_path(
+                match path {
+                    Some(p) => p,
+                    None => {
+                        eprintln!("Warning:: no path or string argument provided to Python polyglot call at position {}", node.start_position());
+                        return None;
+                    }
+                },
+                new_lang,
+            )?,
+        };
+        Some(subtree)
     }
 
-    fn recover_args_js(&self, node: &Node) -> Option<(String, String)> {
+    fn make_subtree_js(&self, node: &Node) -> Option<PolyglotTree> {
         let call_type = node.child(0)?.child(2)?;
         let arg1 = node.child(1)?.child(1)?;
         let arg2 = node.child(1)?.child(3)?;
-
-        let new_code;
-        let new_lang;
 
         match self.node_to_code(call_type) {
             "eval" => {
@@ -341,23 +373,40 @@ impl PolyglotTree {
 
                 tmp_lang.next();
                 tmp_lang.next_back();
-                new_lang = String::from(tmp_lang.as_str());
+                let new_lang = match util::language_string_to_enum(tmp_lang.as_str()) {
+                    Ok(l) => l,
+                    Err(e) => {
+                        eprintln!(
+                            "Could not convert argument {} to language due to error: {e}",
+                            tmp_lang.as_str()
+                        );
+                        return None;
+                    }
+                };
 
                 tmp_code.next();
                 tmp_code.next_back();
-                new_code = String::from(tmp_code.as_str());
+                let new_code = String::from(tmp_code.as_str());
+                Self::from_directory(new_code, new_lang, self.working_dir.clone())
             }
 
             "evalFile" => {
-                let mut tmp_lang = self.node_to_code(arg1).chars(); 
+                let mut tmp_lang = self.node_to_code(arg1).chars();
 
                 tmp_lang.next();
                 tmp_lang.next_back();
-                new_lang = String::from(tmp_lang.as_str());
+                let new_lang = match util::language_string_to_enum(tmp_lang.as_str()) {
+                    Ok(l) => l,
+                    Err(e) => {
+                        eprintln!(
+                            "Could not convert argument {} to language due to error: {e}",
+                            tmp_lang.as_str()
+                        );
+                        return None;
+                    }
+                };
 
-                let mut tmp_path = self
-                    .node_to_code(arg2)
-                    .chars();
+                let mut tmp_path = self.node_to_code(arg2).chars();
                 tmp_path.next();
                 tmp_path.next_back();
 
@@ -376,16 +425,7 @@ impl PolyglotTree {
 
                 path.push(new_path);
 
-                new_code = match std::fs::read_to_string(path) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        eprintln!(
-                            "Warning: could not build subtree for {} because of error {e}",
-                            tmp_path.as_str()
-                        );
-                        return None;
-                    }
-                };
+                Self::from_path(path, new_lang)
             }
 
             other => {
@@ -395,12 +435,10 @@ impl PolyglotTree {
                 );
                 return None;
             }
-        };
-
-        Some((new_code, new_lang))
+        }
     }
 
-    fn recover_args_java(&self, _node: &Node) -> Option<(String, String)> {
+    fn make_subtree_java(&self, _node: &Node) -> Option<PolyglotTree> {
         todo!()
     }
 }
