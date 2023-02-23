@@ -17,7 +17,7 @@ impl TreePrinter {
         }
     }
 
-    pub fn from(&self) -> TreePrinter{
+    pub fn from(&self) -> TreePrinter {
         TreePrinter {
             indent_level: self.indent_level,
             result: String::new(),
@@ -30,7 +30,8 @@ impl TreePrinter {
 }
 
 impl PolygotProcessor for TreePrinter {
-    fn process(&mut self, zip: PolyglotZipper) { // TODO fix indent
+    fn process(&mut self, zip: PolyglotZipper) {
+        // TODO fix indent
         let mut indent = String::from(" ").repeat(self.indent_level);
 
         let child = zip.child(0);
@@ -49,7 +50,11 @@ impl PolygotProcessor for TreePrinter {
 
         let sibling = zip.next_sibling();
         match sibling {
-            Some(z) => {let mut nextp = self.from(); nextp.process(z); self.result.push_str(nextp.get_result()) },
+            Some(z) => {
+                let mut nextp = self.from();
+                nextp.process(z);
+                self.result.push_str(nextp.get_result())
+            }
             None => (),
         }
     }

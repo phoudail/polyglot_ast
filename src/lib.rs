@@ -11,7 +11,9 @@ pub mod util {
         Java,
     }
 
-    pub fn language_string_to_treesitter(lang: &str) -> Result<tree_sitter::Language, InvalidArgumentError> {
+    pub fn language_string_to_treesitter(
+        lang: &str,
+    ) -> Result<tree_sitter::Language, InvalidArgumentError> {
         Ok(language_enum_to_treesitter(&language_string_to_enum(lang)?))
     }
 
@@ -37,7 +39,6 @@ pub mod polyglot_tree;
 
 #[cfg(test)]
 mod tests {
-    
 
     #[test]
     fn it_works() {

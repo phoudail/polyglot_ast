@@ -250,7 +250,10 @@ impl PolyglotTree {
                         return None;
                     }
                 };
-                path = path.map(|mut p| {p.push(new_path); p} );
+                path = path.map(|mut p| {
+                    p.push(new_path);
+                    p
+                });
             }
 
             "language" => {
@@ -297,7 +300,10 @@ impl PolyglotTree {
                         return None;
                     }
                 };
-                path = path.map(|mut p| {p.push(new_path); p} );
+                path = path.map(|mut p| {
+                    p.push(new_path);
+                    p
+                });
             }
 
             "language" => {
@@ -326,7 +332,6 @@ impl PolyglotTree {
                 return None;
             }
         }
-
 
         let new_lang = match new_lang {
             Some(s) => match util::language_string_to_enum(s.as_str()) {
