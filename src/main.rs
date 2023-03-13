@@ -1,12 +1,13 @@
-use polyglot_ast::polyglot_tree::PolyglotTree;
+use std::path::PathBuf;
+
+use polyglot_ast::util::Language;
+use polyglot_ast::{PolyglotTree, TreePrinter};
 
 fn main() {
-    let tree = PolyglotTree::from(
-        "x = 42\npolyglot.eval(path=\"GraalSamples/test_b.js\", language=\"js\")",
-        polyglot_ast::util::Language::Python,
-    )
-    .expect("Should not have parsing issues");
-    let mut tp = polyglot_ast::polyglot_tree::polyglot_processor::TreePrinter::new();
+    let file = PathBuf::from("TestSamples/JavaTest.java");
+    let tree =
+        PolyglotTree::from_path(file, Language::Java).expect("Should not have parsing issues");
+    let mut tp = TreePrinter::new();
     tree.apply(&mut tp);
     println!("{}", tp.get_result())
 }
