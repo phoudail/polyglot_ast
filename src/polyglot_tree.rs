@@ -230,13 +230,11 @@ impl PolyglotTree {
                 )
             }
         } else {
-            match node.child(0) {
-                Some(child) => self.build_polyglot_links(node_tree_map, child), // depth-first
-                None => (),
+            if let Some(child) = node.child(0) {
+                self.build_polyglot_links(node_tree_map, child)
             };
-            match node.next_sibling() {
-                Some(sibling) => self.build_polyglot_links(node_tree_map, sibling),
-                None => (),
+            if let Some(sibling) = node.next_sibling() {
+                self.build_polyglot_links(node_tree_map, sibling)
             };
         }
     }
@@ -267,52 +265,47 @@ impl PolyglotTree {
 
     fn is_polyglot_eval_call(&self, node: Node) -> bool {
         match self.language {
-            Language::Python => match self.get_polyglot_call_python(node) {
-                Some("polyglot.eval") => true,
-                _ => false,
-            },
-            Language::JavaScript => match self.get_polyglot_call_js(node) {
-                Some("Polyglot.eval") | Some("Polyglot.evalFile") => true,
-                _ => false,
-            },
-            Language::Java => match self.get_polyglot_call_java(node) {
-                Some("eval") => true,
-                _ => false,
-            },
+            Language::Python => {
+                matches!(self.get_polyglot_call_python(node), Some("polyglot.eval"))
+            }
+            Language::JavaScript => matches!(
+                self.get_polyglot_call_js(node),
+                Some("Polyglot.eval") | Some("Polyglot.evalFile")
+            ),
+            Language::Java => matches!(self.get_polyglot_call_java(node), Some("eval")),
         }
     }
 
     fn is_polyglot_import_call(&self, node: Node) -> bool {
         match self.language {
-            Language::Python => match self.get_polyglot_call_python(node) {
-                Some("polyglot.import_value") => true,
-                _ => false,
-            },
-            Language::JavaScript => match self.get_polyglot_call_js(node) {
-                Some("Polyglot.import") => true,
-                _ => false,
-            },
+            Language::Python => matches!(
+                self.get_polyglot_call_python(node),
+                Some("polyglot.import_value")
+            ),
+            Language::JavaScript => {
+                matches!(self.get_polyglot_call_js(node), Some("Polyglot.import"))
+            }
             Language::Java => false, // TODO
         }
     }
 
     fn is_polyglot_export_call(&self, node: Node) -> bool {
         match self.language {
-            Language::Python => match self.get_polyglot_call_python(node) {
-                Some("polyglot.export_value") => true,
-                _ => false,
-            },
-            Language::JavaScript => match self.get_polyglot_call_js(node) {
-                Some("Polyglot.export") => true,
-                _ => false,
-            },
+            Language::Python => matches!(
+                self.get_polyglot_call_python(node),
+                Some("polyglot.export_value")
+            ),
+            Language::JavaScript => {
+                matches!(self.get_polyglot_call_js(node), Some("Polyglot.export"))
+            }
             Language::Java => false, // TODO
         }
     }
 
     fn make_subtree(&self, node_tree_map: &mut HashMap<usize, PolyglotTree>, node: Node) -> bool {
         let subtree: PolyglotTree;
-        let result: Option<PolyglotTree> = match self.language { // delegate to language specific subfunction
+        let result: Option<PolyglotTree> = match self.language {
+            // delegate to language specific subfunction
             Language::Python => self.make_subtree_python(&node),
             Language::JavaScript => self.make_subtree_js(&node),
             Language::Java => self.make_subtree_java(&node),
@@ -331,7 +324,7 @@ impl PolyglotTree {
     fn make_subtree_python(&self, node: &Node) -> Option<PolyglotTree> {
         let arg1 = node.child(1)?.child(1)?.child(0)?;
         let arg2 = node.child(1)?.child(3)?.child(0)?;
-        
+
         let mut new_code: Option<String> = None;
         let mut new_lang: Option<String> = None;
         let mut path: Option<PathBuf> = None;
@@ -442,10 +435,12 @@ impl PolyglotTree {
 
         let subtree = match new_code {
             Some(c) => Self::from_directory(c, new_lang, self.working_dir.clone())?,
-            None => Self::from_path( // No raw code, check for a path
+            None => Self::from_path(
+                // No raw code, check for a path
                 match path {
                     Some(p) => p,
-                    None => { // No path either -> we cant build the tree
+                    None => {
+                        // No path either -> we cant build the tree
                         eprintln!("Warning:: no path or string argument provided to Python polyglot call at position {}", node.start_position());
                         return None;
                     }
@@ -466,7 +461,7 @@ impl PolyglotTree {
             "eval" => {
                 // Arguments are positional, and always at the same spot
                 let tmp_lang = util::strip_quotes(self.node_to_code(arg1));
-                let tmp_code = util::strip_quotes(self.node_to_code(arg2)); 
+                let tmp_code = util::strip_quotes(self.node_to_code(arg2));
 
                 let new_lang = match util::language_string_to_enum(tmp_lang.as_str()) {
                     Ok(l) => l,

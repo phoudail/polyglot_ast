@@ -13,7 +13,7 @@ pub struct PolyglotZipper<'a> {
 
 impl PolyglotZipper<'_> {
     /// Returns a new zipper for the given tree, located at the root.
-    pub fn from<'a>(tree: &'a PolyglotTree) -> PolyglotZipper<'a> {
+    pub fn from(tree: &'_ PolyglotTree) -> PolyglotZipper<'_> {
         Self::from_impl(tree, tree.root_node())
     }
 
@@ -119,7 +119,8 @@ impl PolyglotZipper<'_> {
 
     /// Get the zipper for the child at the given index, where zero represents the first child.
     pub fn child(&self, i: usize) -> Option<PolyglotZipper> {
-        if self.is_polyglot_eval_call() { // if we are an eval call, we actually want to jump to the corresponding subtree
+        if self.is_polyglot_eval_call() {
+            // if we are an eval call, we actually want to jump to the corresponding subtree
             let my_id = self.node().id();
             let subtree = self.tree.node_to_subtrees_map.get(&my_id)?;
             return Some(Self::from(subtree));

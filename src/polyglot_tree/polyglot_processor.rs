@@ -9,6 +9,12 @@ pub struct TreePrinter {
     result: String,
 }
 
+impl Default for TreePrinter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TreePrinter {
     pub fn new() -> TreePrinter {
         TreePrinter {
@@ -49,13 +55,10 @@ impl PolygotProcessor for TreePrinter {
         };
 
         let sibling = zip.next_sibling();
-        match sibling {
-            Some(z) => {
-                let mut nextp = self.from();
-                nextp.process(z);
-                self.result.push_str(nextp.get_result())
-            }
-            None => (),
+        if let Some(z) = sibling {
+            let mut nextp = self.from();
+            nextp.process(z);
+            self.result.push_str(nextp.get_result())
         }
     }
 }
