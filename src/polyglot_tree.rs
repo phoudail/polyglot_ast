@@ -49,7 +49,7 @@ impl PolyglotTree {
     ///
     /// This method can only panic if there is a problem while loading the language grammar into the parser, either in this call or subsequent recursive calls to build subtrees.
     /// This can only happen if tree_sitter and the grammars are of incompatible versions;
-    /// either refer to the `tree_sitter::Parser::set_language()` documentation or directly contact polyglot_ast maintainers if this method panics.
+    /// either refer to the `tree_sitter::Parser::set_language()` documentation or directly contact polyglot_ast maintainers if this method keeps panicking.
     pub fn from(code: impl ToString, language: Language) -> Option<PolyglotTree> {
         let code = code.to_string();
 
@@ -111,7 +111,7 @@ impl PolyglotTree {
     /// This method can only panic if there is a problem while loading the language grammar into the parser,
     /// either in this call or subsequent recursive calls to build subtrees.
     /// This can only happen if tree_sitter and the grammars are of incompatible versions;
-    /// either refer to the `tree_sitter::Parser::set_language()` documentation or directly contact polyglot_ast maintainers if this method panics.
+    /// either refer to the `tree_sitter::Parser::set_language()` documentation or directly contact polyglot_ast maintainers if this method keeps panicking.
     pub fn from_path(path: PathBuf, language: Language) -> Option<PolyglotTree> {
         let file = path.clone();
         let code = match std::fs::read_to_string(path) {
@@ -163,7 +163,7 @@ impl PolyglotTree {
     /// This method can only panic if there is a problem while loading the language grammar into the parser,
     /// either in this call or subsequent recursive calls to build subtrees.
     /// This can only happen if tree_sitter and the grammars are of incompatible versions;
-    /// either refer to the `tree_sitter::Parser::set_language()` documentation or directly contact polyglot_ast maintainers if this method panics.
+    /// either refer to the `tree_sitter::Parser::set_language()` documentation or directly contact polyglot_ast maintainers if this method keeps panicking.
     fn from_directory(
         code: impl ToString,
         language: Language,
@@ -522,7 +522,7 @@ impl PolyglotTree {
                     "Warning: unable to identify polyglot function call {other} at position {}",
                     node.start_position()
                 );
-                return None;
+                None
             }
         }
     }

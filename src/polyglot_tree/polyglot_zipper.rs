@@ -4,12 +4,15 @@ use super::util::{InvalidArgumentError, Language};
 
 use super::PolyglotTree;
 
+/// A PolyglotZipper is an object based on a PolyglotTree, which contains one of the tree's nodes.
+/// Zippers allow navigation of the tree and retrieval of node properties for analysis tasks.
 pub struct PolyglotZipper<'a> {
     tree: &'a PolyglotTree,
     node: TreeCursor<'a>,
 }
 
 impl PolyglotZipper<'_> {
+    /// Returns a new zipper for the given tree, located at the root.
     pub fn from<'a>(tree: &'a PolyglotTree) -> PolyglotZipper<'a> {
         Self::from_impl(tree, tree.root_node())
     }
@@ -116,13 +119,10 @@ impl PolyglotZipper<'_> {
 
     /// Get the zipper for the child at the given index, where zero represents the first child.
     pub fn child(&self, i: usize) -> Option<PolyglotZipper> {
-        if self.is_polyglot_eval_call() {
+        if self.is_polyglot_eval_call() { // if we are an eval call, we actually want to jump to the corresponding subtree
             let my_id = self.node().id();
             let subtree = self.tree.node_to_subtrees_map.get(&my_id)?;
-            return Some(PolyglotZipper {
-                tree: subtree,
-                node: subtree.root_node().walk(),
-            });
+            return Some(Self::from(subtree));
         }
 
         Some(Self::from_impl(self.tree, self.node.node().child(i)?))
