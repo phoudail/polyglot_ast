@@ -18,18 +18,18 @@ pub mod util {
 
     /// Returns a String identical to the provided slice but with leading and trailing characters removed.
     /// In practice, this is mostly used to remove quotes from string literals, but the function does not actually check which characters it removes.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// use polyglot_ast::util;
-    /// 
+    ///
     /// let s = "\'Hello!\'";
     /// let stripped = util::strip_quotes(&s);
     /// assert_eq!(stripped, String::from("Hello!"));
-    /// 
+    ///
     /// let stripped_again = util::strip_quotes(stripped.as_str());
     /// assert_eq!(stripped_again, String::from("ello"));
-    /// 
+    ///
     /// ```
     pub fn strip_quotes(s: &str) -> String {
         let mut tmp = s.chars();
@@ -41,7 +41,7 @@ pub mod util {
     /// Returns the treesitter language corresponding to the string slice passed.
     ///
     /// If the string slice does not match any supported language, the return value will be an InvalidArgumentError.
-    /// 
+    ///
     /// # Examples
     /// Valid use-case:
     /// ```
@@ -128,12 +128,29 @@ pub use polyglot_tree::PolyglotTree;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{path::PathBuf};
+    use std::path::PathBuf;
 
     #[test]
-    fn it_works() {
+    fn python_test() {
         let file = PathBuf::from("TestSamples/export_x.py");
-        PolyglotTree::from_path(file
-            , util::Language::Python);
+        PolyglotTree::from_path(file, util::Language::Python);
+    }
+
+    #[test]
+    fn js_test() {
+        let file = PathBuf::from("TestSamples/test_pyprint.js");
+        PolyglotTree::from_path(file, util::Language::Python);
+    }
+
+    #[test]
+    fn js_test_file() {
+        let file = PathBuf::from("TestSamples/test_pyprint_file.js");
+        PolyglotTree::from_path(file, util::Language::Python);
+    }
+
+    #[test]
+    fn java_test() {
+        let file = PathBuf::from("TestSamples/JavaTest.java");
+        PolyglotTree::from_path(file, util::Language::Python);
     }
 }
