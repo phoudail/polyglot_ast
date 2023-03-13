@@ -102,17 +102,16 @@ impl PolyglotZipper<'_> {
     }
 
     pub fn child(&self, i: usize) -> Option<PolyglotZipper> {
-        let my_id = self.node().id();
-        let subtree = self.tree.node_to_subtrees_map.get(&my_id);
-
-        match subtree {
-            Some(t) => Some(PolyglotZipper {
-                tree: t,
-                node: t.root_node().walk(),
-            }),
-
-            None => Some(Self::from_impl(self.tree, self.node.node().child(i)?)),
+        if self.is_polyglot_eval_call() {
+            let my_id = self.node().id();
+            let subtree = self.tree.node_to_subtrees_map.get(&my_id)?;
+            return Some(PolyglotZipper {
+                tree: subtree,
+                node: subtree.root_node().walk(),
+            });
         }
+
+        Some(Self::from_impl(self.tree, self.node.node().child(i)?))
     }
 
     pub fn next_sibling(&self) -> Option<PolyglotZipper> {
