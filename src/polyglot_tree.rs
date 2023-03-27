@@ -285,7 +285,7 @@ impl PolyglotTree {
             Language::JavaScript => {
                 matches!(self.get_polyglot_call_js(node), Some("Polyglot.import"))
             }
-            Language::Java => false, // TODO
+            Language::Java => matches!(self.get_polyglot_call_java(node), Some("getMember")),
         }
     }
 
@@ -298,7 +298,7 @@ impl PolyglotTree {
             Language::JavaScript => {
                 matches!(self.get_polyglot_call_js(node), Some("Polyglot.export"))
             }
-            Language::Java => false, // TODO
+            Language::Java => matches!(self.get_polyglot_call_java(node), Some("putMember")),
         }
     }
 
