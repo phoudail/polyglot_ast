@@ -54,7 +54,9 @@ impl TreePrinter {
                 indent.push_str(&format!("{}\n", zip.kind()));
                 self.result.push_str(&indent);
                 self.indent_level += 1;
-                self.process(z);
+                let mut nextp = TreePrinter::from(self);
+                nextp.process(z);
+                self.result.push_str(nextp.get_result())
             }
             None => {
                 indent.push_str(&format!("{} : {}\n", zip.kind(), zip.code()));
