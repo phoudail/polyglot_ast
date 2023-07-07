@@ -538,7 +538,6 @@ impl PolyglotTree {
         };
 
         let new_code = util::strip_quotes(self.node_to_code(arg2));
-        println!("{}", new_code);
         Self::from_directory(new_code, new_lang, self.working_dir.clone())
     }
 }
