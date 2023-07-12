@@ -1,8 +1,9 @@
 use super::util;
 use super::util::Language;
-use std::collections::HashMap;
+use std::io::Read;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::{collections::HashMap, fs::File};
 use tree_sitter::{Node, Parser, Tree};
 
 pub mod polyglot_processor;
@@ -11,6 +12,8 @@ pub mod polyglot_zipper;
 /// An Abstract Syntax Tree (AST) spanning across multiple languages.
 ///
 ///
+///
+#[derive(Debug)]
 pub struct PolyglotTree {
     tree: Tree,
     code: String,
@@ -18,6 +21,9 @@ pub struct PolyglotTree {
     language: Language,
     node_to_subtrees_map: HashMap<usize, PolyglotTree>,
 }
+
+type SourceMap = HashMap<String, (Language, String)>;
+type FileMap = HashMap<String, String>;
 
 impl PolyglotTree {
     /// Given a program's code and a Language, returns a PolyglotTree instance that represents the program.
@@ -51,6 +57,10 @@ impl PolyglotTree {
     /// This can only happen if tree_sitter and the grammars are of incompatible versions;
     /// either refer to the `tree_sitter::Parser::set_language()` documentation or directly contact polyglot_ast maintainers if this method keeps panicking.
     pub fn from(code: impl ToString, language: Language) -> Option<PolyglotTree> {
+        println!("tree - code pris en entrée {}", code.to_string());
+        // le print du langage pris en paramètre en fonctionne pas
+        // println!("tree - langage pris en entrée : {language}");
+
         let code = code.to_string();
 
         let mut parser = Parser::new();
@@ -71,7 +81,9 @@ impl PolyglotTree {
         };
 
         let mut map = HashMap::new();
-        result.build_polyglot_tree(&mut map); // traverse the tree to build the subtrees
+        let mut map_source: SourceMap = HashMap::new();
+        let mut map_file: FileMap = HashMap::new();
+        result.build_polyglot_tree(&mut map, &mut map_source, &mut map_file); // traverse the tree to build the subtrees
         result.node_to_subtrees_map = map; // set the map after its built
         Some(result)
     }
@@ -113,6 +125,7 @@ impl PolyglotTree {
     /// This can only happen if tree_sitter and the grammars are of incompatible versions;
     /// either refer to the `tree_sitter::Parser::set_language()` documentation or directly contact polyglot_ast maintainers if this method keeps panicking.
     pub fn from_path(path: PathBuf, language: Language) -> Option<PolyglotTree> {
+        //println!("tree - passage dans la fonction principale pour créer l'arbre");
         let file = path.clone();
         let code = match std::fs::read_to_string(path) {
             Ok(s) => s,
@@ -143,8 +156,11 @@ impl PolyglotTree {
         };
 
         let mut map = HashMap::new();
-        result.build_polyglot_tree(&mut map);
+        let mut map_source: SourceMap = HashMap::new();
+        let mut map_file = HashMap::new();
+        result.build_polyglot_tree(&mut map, &mut map_source, &mut map_file);
         result.node_to_subtrees_map = map;
+
         Some(result)
     }
 
@@ -169,6 +185,7 @@ impl PolyglotTree {
         language: Language,
         working_dir: PathBuf,
     ) -> Option<PolyglotTree> {
+        //println!("tree - passage dans la fonction from directory");
         let code = code.to_string();
 
         let mut parser = Parser::new();
@@ -189,7 +206,9 @@ impl PolyglotTree {
         };
 
         let mut map = HashMap::new();
-        result.build_polyglot_tree(&mut map);
+        let mut map_source: SourceMap = HashMap::new();
+        let mut map_file = HashMap::new();
+        result.build_polyglot_tree(&mut map, &mut map_source, &mut map_file);
         result.node_to_subtrees_map = map;
         Some(result)
     }
@@ -211,15 +230,119 @@ impl PolyglotTree {
     }
 
     /// Internal function to start building the polyglot mappings and subtrees.
-    fn build_polyglot_tree(&self, node_tree_map: &mut HashMap<usize, PolyglotTree>) {
+    fn build_polyglot_tree(
+        &self,
+        node_tree_map: &mut HashMap<usize, PolyglotTree>,
+        map_source: &mut SourceMap,
+        map_file: &mut FileMap,
+    ) {
+        //println!("tree - start building the polyglot tree");
         let root = self.tree.root_node();
-        self.build_polyglot_links(node_tree_map, root); // we get the root, and then call the recursive function
+        self.build_polyglot_links(node_tree_map, root, map_source, map_file); // we get the root, and then call the recursive function
     }
 
     /// Internal recursive function that iterates over the nodes in the tree, and builds all subtrees as well as the polyglot link map.
-    fn build_polyglot_links(&self, node_tree_map: &mut HashMap<usize, PolyglotTree>, node: Node) {
+    fn build_polyglot_links(
+        &self,
+        node_tree_map: &mut HashMap<usize, PolyglotTree>,
+        node: Node,
+        map_source: &mut SourceMap,
+        map_file: &mut FileMap,
+    ) {
+        //println!("tree - passage dans la fonction polyglot links");
+
+        //println!("AFFICHAGE DU NOEUD : ");
+        //println!("{}", node.kind());
+
+        if node.kind() == "local_variable_declaration" {
+            //a parcourir
+            // regarder les child
+            //node.child()
+            println!("INSERTION DANS LES HASHMAPS");
+            println!("{}", node.named_child_count());
+            println!("{}", node.child_count());
+            println!("DEBUT FOR ENFANT");
+            /*
+            for i in 0..node.child(1).unwrap().child_count(){
+                println!("i : {}", i);
+                //println!("ENFANT : {}", node.child(i).unwrap().kind());
+                println!("{:?}", self.node_to_code(node.child(1).unwrap().child(i).unwrap()));
+            }
+            */
+            println!("FIN FOR ENFANT");
+            for i in 0..node.named_child_count() {
+                //use self.node_to_code() instead node.named_child(i) to get the child code
+                println!("child : {}", node.named_child(i).unwrap().kind());
+                println!("{:?}", self.node_to_code(node.child(i).unwrap()));
+                if self.node_to_code(node.child(i).unwrap()) == "Source" {
+                    println!("PASSAGE DANS SOURCE");
+                    println!("source : {}", node.named_child(i).unwrap().kind());
+                    println!("{:?}", self.node_to_code(node.child(i).unwrap()));
+                    
+                    let paire = node
+                        .child(1)
+                        .unwrap()
+                        .child(2)
+                        .unwrap()
+                        .child(0)
+                        .unwrap()
+                        .child(3)
+                        .unwrap();
+                    println!("accès à la source : {}",self.node_to_code(node.child(1).unwrap().child(0).unwrap()));
+                    println!(
+                        "accès à la paire (langage, fichier): {}",
+                        self.node_to_code(
+                            node.child(1)
+                                .unwrap()
+                                .child(2)
+                                .unwrap()
+                                .child(0)
+                                .unwrap()
+                                .child(3)
+                                .unwrap()
+                        ),
+                    );
+
+                    println!(
+                        "accès au langage : {}",
+                        self.node_to_code(paire.child(1).unwrap()),
+                    );
+                    println!(
+                        "accès au fichier : {}",
+                        self.node_to_code(paire.child(3).unwrap()),
+                    );
+
+                    map_source.insert(
+                        self.node_to_code(node.child(1).unwrap().child(0).unwrap()).to_string(),
+                        // prendre langage dans les arguments de node
+                        (
+                            match util::language_string_to_enum(
+                                &util::strip_quotes(self.node_to_code(paire.child(1).unwrap())),
+                            ) {
+                                Ok(lang) => lang,
+                                Err(_) => panic!("Error: language not supported"),
+                            },
+                            //util::strip_quotes(self.node_to_code(paire.child(3).unwrap())).to_string(),
+                            // la ligne en dessous affiche "f" mais on veut f
+                            self.node_to_code(paire.child(3).unwrap()).to_string(),
+                            //util::strip_quotes(self.node_to_code(paire.child(3).unwrap()))
+                        ),
+                    );
+                }
+                if self.node_to_code(node.child(i).unwrap()) == "File" {
+                    println!("PASSAGE DANS FILE");
+                    println!("file : {}", node.named_child(i).unwrap().kind());
+                    println!("{:?}", self.node_to_code(node.child(i).unwrap()));
+                    map_file.insert(
+                        node.id().to_string(),
+                        self.working_dir.to_str().unwrap().to_string(),
+                    );
+                }
+            }
+        }
+
         if self.is_polyglot_eval_call(node) {
-            if !self.make_subtree(node_tree_map, node) {
+            if !self.make_subtree(node_tree_map, map_source, map_file, node) {
                 // If building the subtree failed,
                 // we want to soft fail (eg. not panic) to avoid interrupting the tree building.
                 // Eventually, this should be made into a proper Error,
@@ -231,15 +354,16 @@ impl PolyglotTree {
             }
         } else {
             if let Some(child) = node.child(0) {
-                self.build_polyglot_links(node_tree_map, child)
+                self.build_polyglot_links(node_tree_map, child, map_source, map_file)
             };
             if let Some(sibling) = node.next_sibling() {
-                self.build_polyglot_links(node_tree_map, sibling)
+                self.build_polyglot_links(node_tree_map, sibling, map_source, map_file)
             };
         }
     }
 
     fn get_polyglot_call_python(&self, node: Node) -> Option<&str> {
+        //println!("tree - passage dans la fonction polyglot python");
         let child = node.child(0)?;
         if node.kind().eq("call") && child.kind().eq("attribute") {
             return Some(self.node_to_code(child));
@@ -248,6 +372,7 @@ impl PolyglotTree {
     }
 
     fn get_polyglot_call_js(&self, node: Node) -> Option<&str> {
+        //println!("tree - passage dans la fonction polyglot js");
         let child = node.child(0)?;
         if node.kind().eq("call_expression") && child.kind().eq("member_expression") {
             return Some(self.node_to_code(child));
@@ -256,6 +381,7 @@ impl PolyglotTree {
     }
 
     fn get_polyglot_call_java(&self, node: Node) -> Option<&str> {
+        //println!("tree - passage dans la fonction polyglot java");
         let child = node.child(2)?;
         if node.kind().eq("method_invocation") && child.kind().eq("identifier") {
             return Some(self.node_to_code(child));
@@ -302,13 +428,20 @@ impl PolyglotTree {
         }
     }
 
-    fn make_subtree(&self, node_tree_map: &mut HashMap<usize, PolyglotTree>, node: Node) -> bool {
+    fn make_subtree(
+        &self,
+        node_tree_map: &mut HashMap<usize, PolyglotTree>,
+        map_source: &mut SourceMap,
+        map_file: &mut FileMap,
+        node: Node,
+    ) -> bool {
+        println!("tree - création d'un nouveau sous arbre");
         let subtree: PolyglotTree;
         let result: Option<PolyglotTree> = match self.language {
             // delegate to language specific subfunction
             Language::Python => self.make_subtree_python(&node),
             Language::JavaScript => self.make_subtree_js(&node),
-            Language::Java => self.make_subtree_java(&node),
+            Language::Java => self.make_subtree_java(&node, map_source, map_file),
         };
 
         subtree = match result {
@@ -322,6 +455,7 @@ impl PolyglotTree {
     }
 
     fn make_subtree_python(&self, node: &Node) -> Option<PolyglotTree> {
+        println!("tree - création sous arbre python");
         let arg1 = node.child(1)?.child(1)?.child(0)?;
         let arg2 = node.child(1)?.child(3)?.child(0)?;
 
@@ -452,6 +586,7 @@ impl PolyglotTree {
     }
 
     fn make_subtree_js(&self, node: &Node) -> Option<PolyglotTree> {
+        println!("tree - création sous arbre js");
         let call_type = node.child(0)?.child(2)?; // function name
         let arg1 = node.child(1)?.child(1)?; // language
         let arg2 = node.child(1)?.child(3)?; // code
@@ -522,22 +657,139 @@ impl PolyglotTree {
         }
     }
 
-    fn make_subtree_java(&self, node: &Node) -> Option<PolyglotTree> {
+    fn make_subtree_java(
+        &self,
+        node: &Node,
+        map_source: &mut SourceMap,
+        map_file: &mut FileMap,
+    ) -> Option<PolyglotTree> {
+        println!("tree - création sous arbre java");
         // Java uses positional arguments, so they will always be accessible with the same route.
-        let arg1 = node.child(3)?.child(1)?; // language
-        let arg2 = node.child(3)?.child(3)?; // code
 
-        let s = util::strip_quotes(self.node_to_code(arg1));
+        println!("MAP SOURCE : {:?}", map_source);
+        println!("MAP FILE : {:?}", map_file);
 
-        let new_lang = match util::language_string_to_enum(&s) {
-            Ok(l) => l,
-            Err(e) => {
-                eprintln!("Could not convert argument {s} to language due to error: {e}",);
+        // look at the number of children to count the args
+        let nb_args = node.child_count() - 1;
+        println!("nb_args : {}", nb_args);
+        for i in 0..nb_args {
+            println!("i : {}", i);
+            let arg = node.child(i + 1)?;
+            println!("arg : {}", self.node_to_code(arg));
+        }
+
+        //si node.child(3) a un enfant, c'est que c'est un code, si node.child(3) a 2 enfants: le premier est le language, le deuxième est le code
+        let nb_child: usize = node.child(3)?.child_count();
+        println!("nb_child : {}", nb_child);
+        for i in 0..nb_child {
+            println!("i : {}", i);
+            let arg = node.child(3)?.child(i)?;
+            println!("arg : {}", self.node_to_code(arg));
+        }
+
+        if nb_child == 3 {
+            println!("nb child : {}", nb_child);
+            let arg1 = node.child(3)?.child(1)?; // code
+            println!("code : {}", self.node_to_code(arg1));
+
+            //getting source
+            let source = map_source.get(self.node_to_code(arg1));
+            //dbg!(source);
+            println!("source : {:?}", source.expect("source not found"));
+
+            //guetting language
+            let tmp_language = &source.expect("").0;
+
+            //getting file
+            let file: Option<&String> = map_file.get(&source.expect("source not found").1);
+            println!("file : {}", file.expect("file not found"));
+
+            //open the file of the path
+            let mut openfile = File::open(file.expect("file not found")).unwrap();
+
+            //putting file code in a string
+            let mut code = String::new();
+            openfile.read_to_string(&mut code).unwrap();
+
+            //return option<polyglottree> type
+            Self::from_directory(code, tmp_language.clone(), self.working_dir.clone());
+        } else if nb_child == 5 {
+            println!("nb child : {}", nb_child);
+            let r = retreive_invocation_arguments(node)?;
+            //let arg1 = r[0]; // language
+            //let arg2 = r[1]; // code
+            let r = ArgsIt::new(node);
+            /*
+            for arg in r {
+                println!("arg : {:#?}", arg);
+            }
+            */
+            let arg1 = node.child(3)?.child(1)?; // language
+            println!("ENDROIT QUI BLOQUE");
+            println!("arg1 : {:?}", self.node_to_code(arg1));
+            let arg2 = node.child(3)?.child(3)?; // code
+            
+            println!("language : {}", self.node_to_code(arg1));
+            println!("code : {}", self.node_to_code(arg2));
+
+            let s = util::strip_quotes(self.node_to_code(arg1));
+            //ajout de strip_quotes car "\"python\""
+            let new_lang = match util::language_string_to_enum(&util::strip_quotes(&s)) {
+                Ok(l) => l,
+                Err(e) => {
+                    eprintln!("Could not convert argument {s} to language due to error: {e}",);
+                    return None;
+                }
+            };
+
+            let new_code = util::strip_quotes(self.node_to_code(arg2));
+            Self::from_directory(new_code, new_lang, self.working_dir.clone());
+        }
+        println!("fin");
+        return None;
+    }
+}
+
+fn retreive_invocation_arguments<'a>(node: &Node<'a>) -> Option<Vec<Node<'a>>> {
+    let mut walk = node.child_by_field_name("arguments")?.walk();
+    let mut r = vec![];
+    assert!(walk.goto_first_child());
+    loop {
+        let node = walk.node();
+        if !node.kind().contains("[,()]") {
+            r.push(node);
+        }
+        if !walk.goto_next_sibling() {
+            break;
+        }
+    }
+    Some(r)
+}
+
+struct ArgsIt<'a> {
+    walk: tree_sitter::TreeCursor<'a>,
+}
+
+impl<'a> ArgsIt<'a> {
+    fn new(node: &'a Node) -> Self {
+        let mut walk = node.walk();
+        walk.goto_first_child();
+        Self { walk }
+    }
+}
+
+impl<'a> Iterator for ArgsIt<'a> {
+    type Item = Node<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let node = self.walk.node();
+            if !node.kind().contains("[,()]") {
+                return Some(node);
+            }
+            if !self.walk.goto_next_sibling() {
                 return None;
             }
-        };
-
-        let new_code = util::strip_quotes(self.node_to_code(arg2));
-        Self::from_directory(new_code, new_lang, self.working_dir.clone())
+        }
     }
 }
