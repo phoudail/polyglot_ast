@@ -334,8 +334,8 @@ impl PolyglotTree {
                     println!("file : {}", node.named_child(i).unwrap().kind());
                     println!("{:?}", self.node_to_code(node.child(i).unwrap()));
                     map_file.insert(
-                        node.id().to_string(),
-                        self.working_dir.to_str().unwrap().to_string(),
+                        self.node_to_code(node.child(1).unwrap().child(0).unwrap()).to_string(),
+                        self.node_to_code(node.child(1).unwrap().child(2).unwrap().child(2).unwrap().child(1).unwrap()).to_string(),
                     );
                 }
             }

@@ -9,6 +9,7 @@ pub mod util {
     pub struct InvalidArgumentError;
 
     /// An enumeration that represents all languages supported by this crate. Current options are Python, JavaScript and Java.
+    #[derive(Debug, Clone)]
     pub enum Language {
         Python,
         JavaScript,

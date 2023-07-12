@@ -6,9 +6,21 @@ use super::PolyglotTree;
 
 /// A PolyglotZipper is an object based on a PolyglotTree, which contains one of the tree's nodes.
 /// Zippers allow navigation of the tree and retrieval of node properties for analysis tasks.
+
+#[derive(Default)]
+pub struct Test {
+    n: u32,
+}
+
 pub struct PolyglotZipper<'a> {
     tree: &'a PolyglotTree,
     node: TreeCursor<'a>,
+}
+
+impl std::fmt::Debug for PolyglotZipper<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("").field(&self.tree).finish()
+    }
 }
 
 impl PolyglotZipper<'_> {
@@ -30,16 +42,19 @@ impl PolyglotZipper<'_> {
 
     /// Returns true if the contained node is a polyglot eval call.
     pub fn is_polyglot_eval_call(&self) -> bool {
+        //println!("zipper - passage dans la fonction eval");
         self.tree.is_polyglot_eval_call(self.node())
     }
 
     /// Returns true if the contained node is a polyglot import call.
     pub fn is_polyglot_import_call(&self) -> bool {
+        //println!("zipper - passage dans la fonction import");
         self.tree.is_polyglot_import_call(self.node())
     }
 
     /// Returns true if the contained node is a polyglot export call.
     pub fn is_polyglot_export_call(&self) -> bool {
+        //println!("zipper - passage dans la fonction export");
         self.tree.is_polyglot_export_call(self.node())
     }
 
@@ -91,12 +106,14 @@ impl PolyglotZipper<'_> {
 
     /// Get the Language associated with the contained node.
     pub fn get_lang(&self) -> &Language {
+        //println!("zipper - vérification du langage");
         &self.tree.language
     }
 
     /// Move this zipper to the first child of the contained node.
     /// Returns `true` if there were any children, otherwise returns `false` and does not move.
     pub fn goto_first_child(&mut self) -> bool {
+        //println!("zipper - goto first child");
         let my_id = self.node().id();
         let subtree = self.tree.node_to_subtrees_map.get(&my_id);
 
@@ -114,6 +131,7 @@ impl PolyglotZipper<'_> {
     /// Move this zipper to the first sibling of the contained node.
     /// Returns `true` if there were any siblings, otherwise returns `false` and does not move.
     pub fn goto_next_sibling(&mut self) -> bool {
+        //println!("zipper - goto next sibling");
         self.node.goto_next_sibling()
     }
 
