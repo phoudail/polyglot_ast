@@ -634,7 +634,8 @@ impl PolyglotTree {
             openfile.read_to_string(&mut code).unwrap();
 
             //return CST
-            Self::from_directory(code, tmp_language.clone(), self.working_dir.clone());
+            return Self::from_directory(code, tmp_language.clone(), self.working_dir.clone());
+            
         } 
         else if nb_child == 5 {
             //getting language and code
@@ -651,8 +652,9 @@ impl PolyglotTree {
                 }
             };
             let new_code = util::strip_quotes(self.node_to_code(code));
+            println!("{}", new_code);
             //return CST
-            Self::from_directory(new_code, new_lang, self.working_dir.clone());
+            return Self::from_directory(new_code, new_lang, self.working_dir.clone());
         }
         //return none if no child or more than 2
         return None;
