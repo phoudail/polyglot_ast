@@ -4,7 +4,7 @@ use polyglot_ast::util::Language;
 use polyglot_ast::{PolyglotTree, TreePrinter};
 
 fn main() {
-    let file = PathBuf::from("TestSamples/JavaTest.java");
+    let file = PathBuf::from("TestSamples/JavaTest3.java");
     let tree =
         PolyglotTree::from_path(file, Language::Java).expect("Should not have parsing issues");
     let mut tp = TreePrinter::new();
