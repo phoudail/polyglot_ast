@@ -15,7 +15,7 @@ public class JavaTest3 {
         File file2 = new File("TestSamples/test_pyprint_file.js");
 
         Source source1 = Source.newBuilder("python", file1).build();
-        Source source2 = Source.newBuilder("java", file2).build();
+        Source source2 = Source.newBuilder("js", file2).build();
 
         try (Context context = Context.create()) {
             context.eval(source1);
