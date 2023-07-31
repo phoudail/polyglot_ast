@@ -1,0 +1,13 @@
+{
+    "entrypoints": {
+        "use_gitignore": true,
+        "exclude": [
+            "node_modules"
+        ],
+        "default": [
+            "JavaTest.java",
+            "pyprint.py",
+            "test_pyprint.js"
+        ]
+    }
+}
