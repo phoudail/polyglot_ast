@@ -13,7 +13,7 @@ pub mod polyglot_zipper;
 ///
 ///
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PolyglotTree {
     tree: Tree,
     code: String,
@@ -22,8 +22,30 @@ pub struct PolyglotTree {
     node_to_subtrees_map: HashMap<usize, PolyglotTree>,
 }
 
+impl PartialEq for PolyglotTree {
+    fn eq(&self, other: &Self) -> bool {
+        self.code == other.code
+            && self.language == other.language
+            && self.node_to_subtrees_map == other.node_to_subtrees_map
+    }
+}
+
+impl Eq for PolyglotTree {}
+
 type SourceMap = HashMap<String, (Language, String)>;
 type FileMap = HashMap<String, String>;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ParsingResult {
+    tree: Option<PolyglotTree>,
+    errors: std::sync::Arc<Vec<String>>,
+}
+
+impl ParsingResult {
+    pub fn tree(&self) -> &Option<PolyglotTree> {
+        &self.tree
+    }
+}
 
 impl PolyglotTree {
     /// Given a program's code and a Language, returns a PolyglotTree instance that represents the program.
@@ -56,7 +78,7 @@ impl PolyglotTree {
     /// This method can only panic if there is a problem while loading the language grammar into the parser, either in this call or subsequent recursive calls to build subtrees.
     /// This can only happen if tree_sitter and the grammars are of incompatible versions;
     /// either refer to the `tree_sitter::Parser::set_language()` documentation or directly contact polyglot_ast maintainers if this method keeps panicking.
-    pub fn from(code: impl ToString, language: Language) -> Option<PolyglotTree> {
+    pub fn from(code: impl ToString, language: Language) -> ParsingResult {
         let code = code.to_string();
 
         let mut parser = Parser::new();
@@ -66,7 +88,14 @@ impl PolyglotTree {
             .set_language(ts_lang)
             .expect("Error loading the language grammar into the parser; if this error persists, consider reporting it to the library maintainers.");
 
-        let tree = parser.parse(code.as_str(), None)?;
+        let tree = parser.parse(code.as_str(), None);
+
+        let Some(tree) = tree else {
+            return ParsingResult {
+                tree: None,
+                errors: std::sync::Arc::new(vec![]),
+            };
+        };
 
         let mut result = PolyglotTree {
             tree,
@@ -81,7 +110,10 @@ impl PolyglotTree {
         let mut map_file: FileMap = HashMap::new();
         result.build_polyglot_tree(&mut map, &mut map_source, &mut map_file); // traverse the tree to build the subtrees
         result.node_to_subtrees_map = map; // set the map after its built
-        Some(result)
+        ParsingResult {
+            tree: Some(result),
+            errors: std::sync::Arc::new(vec![]),
+        }
     }
 
     /// Given a path to a file and a Language, returns a PolyglotTree instance that represents the program written in the file.
@@ -635,12 +667,10 @@ impl PolyglotTree {
 
             //return CST
             return Self::from_directory(code, tmp_language.clone(), self.working_dir.clone());
-            
-        } 
-        else if nb_child == 5 {
+        } else if nb_child == 5 {
             //getting language and code
             let language = node.child(3)?.child(1)?;
-            let code = node.child(3)?.child(3)?; 
+            let code = node.child(3)?.child(3)?;
 
             let s = util::strip_quotes(self.node_to_code(language));
 
