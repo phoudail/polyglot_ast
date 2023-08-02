@@ -118,45 +118,17 @@ pub fn language_string_to_enum(lang: &str) -> Result<Language, InvalidArgumentEr
     }
 }
 
-// Function to get the extension of a file
-fn get_file_extension(file_path: &str) -> Option<String> {
-    // Use rfind to find the last occurrence of '.' in the file path
-    match file_path.rfind('.') {
-        // If '.' is found, extract the substring after '.' and convert it to lowercase
-        Some(idx) => Some(file_path[idx + 1..].to_lowercase()),
-        // If '.' is not found, return None
-        None => None,
-    }
-}
-
 // Main function to get the language based on the file extension
-fn file_extension_to_enum(file_path: &str) -> Option<Language> {
-    // Try to open the file
-    if let Ok(mut file) = File::open(file_path) {
-        let mut buffer = [0; 1024]; // Buffer size for reading
-        // Read the content of the file into the buffer
-        if let Ok(read_bytes) = file.read(&mut buffer) {
-            // Convert the read bytes into a string
-            let content = String::from_utf8_lossy(&buffer[..read_bytes]).to_string();
-
-            // Get the extension of the file
-            if let Some(extension) = get_file_extension(file_path) {
-                // Determine the language based on the file extension
-                match extension.as_str() {
-                    "java" => Some(Language::Java),
-                    "js" => Some(Language::JavaScript),
-                    "py" => Some(Language::Python),
-                    // Add other cases for additional languages
-                    _ => None,
-                }
-            } else {
-                None // If the extension is not found or not supported, return None
-            }
-        } else {
-            None // In case of a read error, return None
-        }
-    } else {
-        None // In case of an error opening the file, return None
+pub fn file_extension_to_enum(extension: &str) -> Result<Language,String> {
+    assert!(!extension.is_empty());
+    assert_ne!(extension.chars().next(), Some('.'));
+    // Determine the language based on the file extension
+    match extension {
+        "java" => Ok(Language::Java),
+        "js" | "jsx" | "ts" | "tsx" => Ok(Language::JavaScript),
+        "py" => Ok(Language::Python),
+        // Add other cases for additional languages
+        x => Err(format!("{}",x)),
     }
 }
 
