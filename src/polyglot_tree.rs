@@ -285,72 +285,74 @@ impl PolyglotTree {
             map_file: &'a mut FileMap,
             node_stack: Vec<Node<'a>>,
         }
-        if node.kind() == "local_variable_declaration" {
-            // TODO extract function
-            // TODO replace unwraps with Err
-            for i in 0..node.named_child_count() {
-                if self.node_to_code(node.child(i).unwrap()) == "Source" {
-                    //pair contains (language, file)
-                    let pair = node
-                        .child(1)
-                        .and_then(|n| n.child(2))
-                        .and_then(|n| n.child(0))
-                        .and_then(|n| n.child(3))
-                        .ok_or(LinkError::LanguageMissing)?;
-                    let source = self
-                        .node_to_code(node.child(1).unwrap().child(0).unwrap())
-                        .to_string();
-                    let lang = self.node_to_code(pair.child(1).ok_or(LinkError::LanguageMissing)?);
-                    let lang = util::strip_quotes(lang);
-                    let language = util::language_string_to_enum(&lang)
-                        .map_err(|_| LinkError::LanguageNotHandled(lang))?;
-                    let file = self
-                        .node_to_code(pair.child(3).ok_or(LinkError::CodeMissing)?)
-                        .to_string();
-                    //insert (source_variable, (language, file))
-                    map_source.insert(source, (language, file));
-                    
-                }
-                if self.node_to_code(node.child(i).unwrap()) == "File" {
-                    let file = self
-                        .node_to_code(node
+        let mut stack = vec![node];
+
+        while let Some(node) = stack.pop() {
+            if node.kind() == "local_variable_declaration" {
+                // TODO extract function
+                for i in 0..node.named_child_count() {
+                    if self.node_to_code(node.child(i).unwrap()) == "Source" {
+                        //pair contains (language, file)
+                        let pair = node
                             .child(1)
+                            .and_then(|n| n.child(2))
                             .and_then(|n| n.child(0))
-                            .ok_or(LinkError::FileMissing)?)
-                        .to_string();
-
-                    let path: &str = self.node_to_code(node
-                        .child(1)
-                        .and_then(|n| n.child(2))
-                        .and_then(|n| n.child(2))
-                        .and_then(|n| n.child(1))
-                        .ok_or(LinkError::PathMissing)?);
-
-                    let path = util::strip_quotes(path);
-                    //insert (file_variable, path of the file)
-                    map_file.insert( file, path);
+                            .and_then(|n| n.child(3))
+                            .ok_or(LinkError::ParametersMissing)?;
+                        let source = self
+                            .node_to_code(node.child(1).unwrap().child(0).unwrap())
+                            .to_string();
+                        let lang = self.node_to_code(pair.child(1).ok_or(LinkError::LanguageMissing)?);
+                        let lang = util::strip_quotes(lang);
+                        let language = util::language_string_to_enum(&lang)
+                            .map_err(|_| LinkError::LanguageNotHandled(lang))?;
+                        let file = self
+                            .node_to_code(pair.child(3).ok_or(LinkError::CodeMissing)?)
+                            .to_string();
+                        //insert (source_variable, (language, file))
+                        map_source.insert(source, (language, file));
+                        
+                    }
+                    if self.node_to_code(node.child(i).unwrap()) == "File" {
+                        let file = self
+                            .node_to_code(node
+                                .child(1)
+                                .and_then(|n| n.child(0))
+                                .ok_or(LinkError::FileMissing)?)
+                            .to_string();
+    
+                        let path: &str = self.node_to_code(node
+                            .child(1)
+                            .and_then(|n| n.child(2))
+                            .and_then(|n| n.child(2))
+                            .and_then(|n| n.child(1))
+                            .ok_or(LinkError::PathMissing)?);
+    
+                        let path = util::strip_quotes(path);
+                        //insert (file_variable, path of the file)
+                        map_file.insert( file, path);
+                    }
                 }
             }
-        }
-
-        if self.is_polyglot_eval_call(node) {
-            if !self.make_subtree(node_tree_map, map_source, map_file, node) {
-                // If building the subtree failed,
-                // we want to soft fail (eg. not panic) to avoid interrupting the tree building.
-                // Eventually, this should be made into a proper Error,
-                // but for now for debugging purposes it just prints a warning.
-                eprintln!(
-                    "Warning: unable to make subtree for polyglot call at position {}",
-                    node.start_position()
-                )
+            if self.is_polyglot_eval_call(node) {
+                if !self.make_subtree(node_tree_map, map_source, map_file, node) {
+                    // If building the subtree failed,
+                    // we want to soft fail (eg. not panic) to avoid interrupting the tree building.
+                    // Eventually, this should be made into a proper Error,
+                    // but for now for debugging purposes it just prints a warning.
+                    eprintln!(
+                        "Warning: unable to make subtree for polyglot call at position {}",
+                        node.start_position()
+                    )
+                }
+            } else {
+                if let Some(child) = node.child(0) {
+                    stack.push(child);
+                }
+                if let Some(sibling) = node.next_sibling() {
+                    stack.push(sibling);
+                }
             }
-        } else {
-            if let Some(child) = node.child(0) {
-                self.build_polyglot_links(node_tree_map, child, map_source, map_file)?
-            };
-            if let Some(sibling) = node.next_sibling() {
-                self.build_polyglot_links(node_tree_map, sibling, map_source, map_file)?
-            };
         };
         Ok(())
     }
@@ -708,5 +710,5 @@ enum LinkError {
     CodeFileMissing,
     FileMissing,
     PathMissing,
-    ErrorBuildingTree,
+    ParametersMissing,
 }
