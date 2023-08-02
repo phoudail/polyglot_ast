@@ -108,7 +108,7 @@ impl PolyglotTree {
         let mut map = HashMap::new();
         let mut map_source: SourceMap = HashMap::new();
         let mut map_file: FileMap = HashMap::new();
-        result.build_polyglot_tree(&mut map, &mut map_source, &mut map_file); // traverse the tree to build the subtrees
+        result.build_polyglot_tree(&mut map, &mut map_source, &mut map_file);
         result.node_to_subtrees_map = map; // set the map after its built
         ParsingResult {
             tree: Some(result),
@@ -261,9 +261,12 @@ impl PolyglotTree {
         node_tree_map: &mut HashMap<usize, PolyglotTree>,
         map_source: &mut SourceMap,
         map_file: &mut FileMap,
-    ) {
+    ) -> Result<(), LinkError>  {
+        println!("PASSAGE DANS build_polyglot_tree");
         let root = self.tree.root_node();
-        self.build_polyglot_links(node_tree_map, root, map_source, map_file); // we get the root, and then call the recursive function
+        self.build_polyglot_links(node_tree_map, root, map_source, map_file)?; // we get the root, and then call the recursive function
+    
+        Ok(())
     }
 
     /// Internal recursive function that iterates over the nodes in the tree, and builds all subtrees as well as the polyglot link map.
@@ -273,53 +276,59 @@ impl PolyglotTree {
         node: Node,
         map_source: &mut SourceMap,
         map_file: &mut FileMap,
-    ) {
+    ) -> Result<(), LinkError> {
+        // TODO refactor build_polyglot_links to avoid being recusive fn
+        // TODO first
+        struct AAA<'a> {
+            node_tree_map: &'a mut HashMap<usize, PolyglotTree>,
+            map_source: &'a mut SourceMap,
+            map_file: &'a mut FileMap,
+            node_stack: Vec<Node<'a>>,
+        }
         if node.kind() == "local_variable_declaration" {
+            // TODO extract function
+            // TODO replace unwraps with Err
             for i in 0..node.named_child_count() {
                 if self.node_to_code(node.child(i).unwrap()) == "Source" {
                     //pair contains (language, file)
                     let pair = node
                         .child(1)
-                        .unwrap()
-                        .child(2)
-                        .unwrap()
-                        .child(0)
-                        .unwrap()
-                        .child(3)
-                        .unwrap();
-                    //insert (source, (language, file))
-                    map_source.insert(
-                        self.node_to_code(node.child(1).unwrap().child(0).unwrap())
-                            .to_string(),
-                        (
-                            match util::language_string_to_enum(&util::strip_quotes(
-                                self.node_to_code(pair.child(1).unwrap()),
-                            )) {
-                                Ok(lang) => lang,
-                                Err(_) => panic!("Error: language not supported"),
-                            },
-                            self.node_to_code(pair.child(3).unwrap()).to_string(),
-                        ),
-                    );
+                        .and_then(|n| n.child(2))
+                        .and_then(|n| n.child(0))
+                        .and_then(|n| n.child(3))
+                        .ok_or(LinkError::LanguageMissing)?;
+                    let source = self
+                        .node_to_code(node.child(1).unwrap().child(0).unwrap())
+                        .to_string();
+                    let lang = self.node_to_code(pair.child(1).ok_or(LinkError::LanguageMissing)?);
+                    let lang = util::strip_quotes(lang);
+                    let language = util::language_string_to_enum(&lang)
+                        .map_err(|_| LinkError::LanguageNotHandled(lang))?;
+                    let file = self
+                        .node_to_code(pair.child(3).ok_or(LinkError::CodeMissing)?)
+                        .to_string();
+                    //insert (source_variable, (language, file))
+                    map_source.insert(source, (language, file));
+                    
                 }
                 if self.node_to_code(node.child(i).unwrap()) == "File" {
+                    let file = self
+                        .node_to_code(node
+                            .child(1)
+                            .and_then(|n| n.child(0))
+                            .ok_or(LinkError::FileMissing)?)
+                        .to_string();
+
+                    let path: &str = self.node_to_code(node
+                        .child(1)
+                        .and_then(|n| n.child(2))
+                        .and_then(|n| n.child(2))
+                        .and_then(|n| n.child(1))
+                        .ok_or(LinkError::PathMissing)?);
+
+                    let path = util::strip_quotes(path);
                     //insert (file_variable, path of the file)
-                    map_file.insert(
-                        self.node_to_code(node.child(1).unwrap().child(0).unwrap())
-                            .to_string(),
-                        util::strip_quotes(
-                            self.node_to_code(
-                                node.child(1)
-                                    .unwrap()
-                                    .child(2)
-                                    .unwrap()
-                                    .child(2)
-                                    .unwrap()
-                                    .child(1)
-                                    .unwrap(),
-                            ),
-                        ),
-                    );
+                    map_file.insert( file, path);
                 }
             }
         }
@@ -337,12 +346,13 @@ impl PolyglotTree {
             }
         } else {
             if let Some(child) = node.child(0) {
-                self.build_polyglot_links(node_tree_map, child, map_source, map_file)
+                self.build_polyglot_links(node_tree_map, child, map_source, map_file)?
             };
             if let Some(sibling) = node.next_sibling() {
-                self.build_polyglot_links(node_tree_map, sibling, map_source, map_file)
+                self.build_polyglot_links(node_tree_map, sibling, map_source, map_file)?
             };
-        }
+        };
+        Ok(())
     }
 
     fn get_polyglot_call_python(&self, node: Node) -> Option<&str> {
@@ -689,4 +699,14 @@ impl PolyglotTree {
         //return none if no child or more than 2
         return None;
     }
+}
+
+enum LinkError {
+    LanguageNotHandled(String),
+    LanguageMissing,
+    CodeMissing,
+    CodeFileMissing,
+    FileMissing,
+    PathMissing,
+    ErrorBuildingTree,
 }
