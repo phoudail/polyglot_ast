@@ -1,19 +1,10 @@
-use std::{fs::File, io::Read};
-
 use thiserror::Error;
+
+use crate::Language;
 
 #[derive(Error, Debug)]
 #[error("Invalid argument received")]
 pub struct InvalidArgumentError;
-
-/// An enumeration that represents all languages supported by this crate. Current options are Python, JavaScript and Java.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Language {
-    Python,
-    JavaScript,
-    /// Warning: Java language support is very partial and limited to string literal usage. Keep this in mind when writing your programs
-    Java,
-}
 
 /// Returns a String identical to the provided slice but with leading and trailing characters removed.
 /// In practice, this is mostly used to remove quotes from string literals, but the function does not actually check which characters it removes.
@@ -119,7 +110,7 @@ pub fn language_string_to_enum(lang: &str) -> Result<Language, InvalidArgumentEr
 }
 
 // Main function to get the language based on the file extension
-pub fn file_extension_to_enum(extension: &str) -> Result<Language,String> {
+pub fn file_extension_to_enum(extension: &str) -> Result<Language, String> {
     assert!(!extension.is_empty());
     assert_ne!(extension.chars().next(), Some('.'));
     // Determine the language based on the file extension
@@ -128,7 +119,6 @@ pub fn file_extension_to_enum(extension: &str) -> Result<Language,String> {
         "js" | "jsx" | "ts" | "tsx" => Ok(Language::JavaScript),
         "py" => Ok(Language::Python),
         // Add other cases for additional languages
-        x => Err(format!("{}",x)),
+        x => Err(format!("{}", x)),
     }
 }
-

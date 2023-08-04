@@ -1,1 +1,1 @@
-Polyglot.evalFile("python", "test_js.py")
+Polyglot.evalFile("python", "pyprint.py")

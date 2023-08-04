@@ -29,4 +29,9 @@ public class JavaTest2 {
             bindings.getMember("test");
         }
     }
+    static Source source0 = Source.newBuilder("python", new File("TestSamples/pyprint.py")).build();
+    static Source source1 = Source.newBuilder("python", new File("TestSamples/pyprint.py")).build();
+    static Source src = source1;
+    static Source src1 = source0.build();
+
 }

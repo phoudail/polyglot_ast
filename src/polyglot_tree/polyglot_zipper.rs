@@ -1,6 +1,8 @@
 use tree_sitter::{Node, TreeCursor};
 
-use super::util::{InvalidArgumentError, Language};
+use crate::Language;
+
+use super::util::InvalidArgumentError;
 
 use super::PolyglotTree;
 
