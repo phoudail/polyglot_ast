@@ -27,11 +27,11 @@ impl std::fmt::Debug for PolyglotZipper<'_> {
 
 impl PolyglotZipper<'_> {
     /// Returns a new zipper for the given tree, located at the root.
-    pub fn from(tree: &'_ PolyglotTree) -> PolyglotZipper<'_> {
-        Self::from_impl(tree, tree.root_node())
+    pub fn new(tree: &'_ PolyglotTree) -> PolyglotZipper<'_> {
+        Self::with_node(tree, tree.root_node())
     }
 
-    fn from_impl<'a>(tree: &'a PolyglotTree, node: Node<'a>) -> PolyglotZipper<'a> {
+    fn with_node<'a>(tree: &'a PolyglotTree, node: Node<'a>) -> PolyglotZipper<'a> {
         PolyglotZipper {
             tree,
             node: node.walk(),
@@ -40,38 +40,6 @@ impl PolyglotZipper<'_> {
 
     fn node(&self) -> Node {
         self.node.node()
-    }
-
-    /// Returns true if the contained node is a polyglot eval call.
-    pub fn is_polyglot_eval_call(&self) -> bool {
-        //println!("zipper - passage dans la fonction eval");
-        self.tree.is_polyglot_eval_call(self.node())
-    }
-
-    /// Returns true if the contained node is a polyglot import call.
-    pub fn is_polyglot_import_call(&self) -> bool {
-        //println!("zipper - passage dans la fonction import");
-        self.tree.is_polyglot_import_call(self.node())
-    }
-
-    /// Returns true if the contained node is a polyglot export call.
-    pub fn is_polyglot_export_call(&self) -> bool {
-        //println!("zipper - passage dans la fonction export");
-        self.tree.is_polyglot_export_call(self.node())
-    }
-
-    /// Get the contained node's type as a string.
-    ///
-    /// For polyglot nodes, this is one of either `"polyglot_eval_call"`, `"polyglot_import_call"` or `"polyglot_export_call"`.
-    pub fn kind(&self) -> &str {
-        if self.is_polyglot_eval_call() {
-            return "polyglot_eval_call";
-        } else if self.is_polyglot_import_call() {
-            return "polyglot_import_call";
-        } else if self.is_polyglot_export_call() {
-            return "polyglot_export_call";
-        }
-        self.node().kind()
     }
     /// Get the contained node's source code as a string.
     pub fn code(&self) -> &str {
@@ -86,6 +54,72 @@ impl PolyglotZipper<'_> {
     /// Get the contained node's end position in terms of rows and columns.
     pub fn end_position(&self) -> tree_sitter::Point {
         self.node().end_position()
+    }
+}
+
+impl PolyglotZipper<'_> {
+    /// Move this zipper to the first child of the contained node.
+    /// Returns `true` if there were any children, otherwise returns `false` and does not move.
+    pub fn goto_first_child(&mut self) -> bool {
+        let my_id = self.node().id();
+        let subtree = self.tree.node_to_subtrees_map.get(&my_id);
+
+        match subtree {
+            Some(t) => {
+                self.tree = t;
+                self.node = t.root_node().walk();
+                true
+            }
+
+            None => self.node.goto_first_child(),
+        }
+    }
+
+    /// Move this zipper to the first sibling of the contained node.
+    /// Returns `true` if there were any siblings, otherwise returns `false` and does not move.
+    pub fn goto_next_sibling(&mut self) -> bool {
+        self.node.goto_next_sibling()
+    }
+    pub fn goto_parent(&mut self) -> bool {
+        self.node.goto_parent()
+    }
+
+}
+
+impl PolyglotZipper<'_> {
+    /// Returns true if the contained node is a polyglot eval call.
+    pub fn is_polyglot_eval_call(&self) -> bool {
+        //println!("zipper - passage dans la fonction eval");
+        // self.tree.is_polyglot_eval_call(self.node())
+        todo!()
+    }
+
+    /// Returns true if the contained node is a polyglot import call.
+    pub fn is_polyglot_import_call(&self) -> bool {
+        //println!("zipper - passage dans la fonction import");
+        // self.tree.is_polyglot_import_call(self.node())
+        todo!()
+    }
+
+    /// Returns true if the contained node is a polyglot export call.
+    pub fn is_polyglot_export_call(&self) -> bool {
+        //println!("zipper - passage dans la fonction export");
+        // self.tree.is_polyglot_export_call(self.node())
+        todo!()
+    }
+
+    /// Get the contained node's type as a string.
+    ///
+    /// For polyglot nodes, this is one of either `"polyglot_eval_call"`, `"polyglot_import_call"` or `"polyglot_export_call"`.
+    pub fn kind(&self) -> &str {
+        if self.is_polyglot_eval_call() {
+            return "polyglot_eval_call";
+        } else if self.is_polyglot_import_call() {
+            return "polyglot_import_call";
+        } else if self.is_polyglot_export_call() {
+            return "polyglot_export_call";
+        }
+        self.node().kind()
     }
 
     pub fn get_binding_name(&self) -> Result<String, InvalidArgumentError> {
@@ -111,51 +145,29 @@ impl PolyglotZipper<'_> {
         //println!("zipper - vérification du langage");
         &self.tree.language
     }
+}
 
-    /// Move this zipper to the first child of the contained node.
-    /// Returns `true` if there were any children, otherwise returns `false` and does not move.
-    pub fn goto_first_child(&mut self) -> bool {
-        //println!("zipper - goto first child");
-        let my_id = self.node().id();
-        let subtree = self.tree.node_to_subtrees_map.get(&my_id);
 
-        match subtree {
-            Some(t) => {
-                self.tree = t;
-                self.node = t.root_node().walk();
-                true
-            }
-
-            None => self.node.goto_first_child(),
-        }
-    }
-
-    /// Move this zipper to the first sibling of the contained node.
-    /// Returns `true` if there were any siblings, otherwise returns `false` and does not move.
-    pub fn goto_next_sibling(&mut self) -> bool {
-        //println!("zipper - goto next sibling");
-        self.node.goto_next_sibling()
-    }
-
-    /// Get the zipper for the child at the given index, where zero represents the first child.
+impl PolyglotZipper<'_> {
+    /// Create the zipper for the child at the given index, where zero represents the first child.
     pub fn child(&self, i: usize) -> Option<PolyglotZipper> {
         if self.is_polyglot_eval_call() {
             // if we are an eval call, we actually want to jump to the corresponding subtree
             let my_id = self.node().id();
             let subtree = self.tree.node_to_subtrees_map.get(&my_id)?;
-            return Some(Self::from(subtree));
+            return Some(Self::new(subtree));
         }
 
-        Some(Self::from_impl(self.tree, self.node.node().child(i)?))
+        Some(Self::with_node(self.tree, self.node.node().child(i)?))
     }
 
-    /// Get the zipper for the next sibling node.
+    /// Create the zipper for the next sibling node.
     pub fn next_sibling(&self) -> Option<PolyglotZipper> {
-        Some(Self::from_impl(self.tree, self.node().next_sibling()?))
+        Some(Self::with_node(self.tree, self.node().next_sibling()?))
     }
 
-    /// Get the zipper for the previous sibling node.
+    /// Create the zipper for the previous sibling node.
     pub fn prev_sibling(&self) -> Option<PolyglotZipper> {
-        Some(Self::from_impl(self.tree, self.node().prev_sibling()?))
+        Some(Self::with_node(self.tree, self.node().prev_sibling()?))
     }
 }

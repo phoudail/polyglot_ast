@@ -3,9 +3,9 @@ use std::io::Read;
 
 use crate::PolyglotTree;
 
-use super::{BuildingContext, StuffPerLanguage, PolyglotUse};
+use super::{BuildingContext, StuffPerLanguage, PolyglotUse, PolyglotBuilding, AnaError, PolyglotDef};
 
-struct JavaBuilder<'ctx, 'str> {
+struct JavaBuilder<'ctx, 'src> {
     ctx: &'ctx mut BuildingContext,
     source: &'src str,
 }
@@ -30,35 +30,48 @@ impl<'ctx,'str> StuffPerLanguage for JavaBuilder<'ctx,'str> {
         todo!()
     }
 
-    fn try_compute_polyglot_use(&self, node: &Self::Node<'_>) -> Option<super::PolyglotUse> {
+    fn try_compute_polyglot_use(&self, node: &Self::Node<'_>) -> Option<Result<super::PolyglotUse,AnaError>> {
         let call = self.get_polyglot_call(node)?;
-        let s = self.node_to_code(node);
+        let s = self.node_to_code(&call);
         if s == "eval" {
             let r = if s=="" {
-                PolyglotUse::Eval { path: (), lang: () }
+                PolyglotUse::Eval { path: todo!(), lang: todo!() }
             } else {
-                PolyglotUse::EvalSource { source: (), lang: () }
-            }
-            Some(r)
+                PolyglotUse::EvalSource { source: todo!(), lang: todo!() }
+            };
+            Some(Ok(r))
         } else if s == "getMember" {
-            let r = PolyglotUse::Import { path: (), lang: () };
-            Some(r)
+            let r = PolyglotUse::Import { path: todo!(), lang: todo!() };
+            Some(Ok(r))
         } else {
             None
         }
     }
 
-    fn try_compute_polyglot_def(&self, node: &Self::Node<'_>) -> Option<super::PolyglotDef> {
-        todo!()
+    fn try_compute_polyglot_def(&self, node: &Self::Node<'_>) -> Option<Result<super::PolyglotDef,AnaError>> {
+        let call = self.get_polyglot_call(node)?;
+        let s = self.node_to_code(node);
+        if s == "puMember" {
+            let r = PolyglotDef::ExportValue { name: todo!(), value: todo!() };
+            Some(Ok(r))
+        } else {
+            None
+        }
     }
 }
-impl<'ctx,'str> JavaBuilder<'ctx,'str> {
-    fn node_to_code(&self, node: &tree_sitter::Node<'_>) -> &str {
-        &self.code[node.start_byte()..node.end_byte()]
+
+
+
+impl<'ctx,'src> JavaBuilder<'ctx,'src> {
+    fn node_to_code(&self, node: &tree_sitter::Node<'_>) -> &'src str {
+        &self.source[node.start_byte()..node.end_byte()]
     }
-    fn get_polyglot_call(&self, node: &tree_sitter::Node<'_>) -> Option<tree_sitter::Node<'_>> {
+    fn get_polyglot_call<'n>(&self, node: &tree_sitter::Node<'n>) -> Option<tree_sitter::Node<'n>> {
+        if node.kind().ne("method_invocation") {
+            return None;
+        }
         let child = node.child(2)?;
-        if node.kind().eq("method_invocation") && child.kind().eq("identifier") {
+        if  child.kind().eq("identifier") {
             return Some(child);
         }
         None
@@ -66,46 +79,67 @@ impl<'ctx,'str> JavaBuilder<'ctx,'str> {
 
     fn compute_polyglot_use(
         &self,
-        node: &Self::Node<'_>
-    ) -> Option<PolyglotTree> {
+        call_expr: &<JavaBuilder<'ctx, 'src> as PolyglotBuilding>::Node<'_>
+    ) -> Option<PolyglotUse> {
         // Java uses positional arguments, so they will always be accessible with the same route.
 
         //if node.child(3) has 1 child => code, if node.child(3) has 2 children: 1st => language, 2nd => code
-        let nb_child: usize = node.child(3)?.child_count();
+        let parameters = &call_expr.child(3)?;
+        let parameter_count = parameters.child_count();
 
-        if nb_child == 3 {
-            let variable_name = node.child(3)?.child(1)?;
+        if parameter_count == 1 {
+            // NOTE match something like:
+            // context.eval(source);
+            // where context is a org.graalvm.polyglot.Context
+            // where source is a org.graalvm.polyglot.Source
+            let parameter = parameters.child(1)?;
 
-            let a = {
-                tree_sitter::Query::new(tree_sitter_java::language(), r#"
-                (local_variable_declaration 
-                    type: "Source" | "org.graalvm.polyglot.Source" @variable.type
-                    declarator: (variable_declarator 
-                        name: (identifier @variable.name)
-                        value: (* @variable.value)))
+            let t = parameter.kind();
+            assert_eq!(t, "identifer");
 
-                (local_variable_declaration  (arguments (identifier)))
-                "#);
-                todo!("the rest")
-            };
+            let name = self.node_to_code(&parameter);
+            let name = name.to_string();
 
-            if let Ok(a) = a {
-                return a;
-            }
+            Some(PolyglotUse::EvalVariable { name })
 
-            let b = {
-                todo!("with spoon")
-            };
+            // dbg!(name);
+            // let a = {
+            //     tree_sitter::Query::new(tree_sitter_java::language(), r#"
+            //     (local_variable_declaration 
+            //         type: "Source" | "org.graalvm.polyglot.Source" @variable.type
+            //         declarator: (variable_declarator 
+            //             name: (identifier @variable.name)
+            //             value: (* @variable.value)))
 
-            // etc
+            //     (local_variable_declaration  (arguments (identifier)))
+            //     "#);
+            //     todo!("the rest")
+            // };
 
-            todo!("use some robust static analysis, ie use existing lsp for Java, or Spoon, or Jdt, or tree-sitter query")
-        } else if nb_child == 5 {
+            // if let Ok(a) = a {
+            //     return a;
+            // }
+
+            // let b = {
+            //     todo!("with spoon")
+            // };
+
+            // // etc
+
+            // todo!("use some robust static analysis, ie use existing lsp for Java, or Spoon, or Jdt, or tree-sitter query")
+        } else if parameter_count == 5 {
+            // NOTE match something like:
+            // context.eval("python", "print(42)");
+            // or:
+            // context.eval("python", source);
+            // where context is a org.graalvm.polyglot.Context
+            // where source is a string or a file (or anything that can be turned into a string ?)
+            
             //getting language and code
-            let language = node.child(3)?.child(1)?;
-            let code = node.child(3)?.child(3)?;
+            let language = parameters.child(1)?;
+            let code = parameters.child(3)?;
             use crate::util;
-            let s = util::strip_quotes(self.node_to_code(language));
+            let s = util::strip_quotes(self.node_to_code(&language));
 
             let new_lang = match util::language_string_to_enum(&s) {
                 Ok(l) => l,
@@ -114,67 +148,11 @@ impl<'ctx,'str> JavaBuilder<'ctx,'str> {
                     return None;
                 }
             };
-            let new_code = util::strip_quotes(self.node_to_code(code));
+            let new_code = util::strip_quotes(self.node_to_code(&code));
             println!("{}", new_code);
-            //return CST
-            return Self::from_directory(new_code, new_lang, self.working_dir.clone());
+            todo!()
+        } else {
+            None
         }
-        //return none if no child or more than 2
-        return None;
-    }
-    fn make_subtree(
-        &self,
-        node: &Node,
-        map_source: &mut SourceMap,
-        map_file: &mut FileMap,
-    ) -> Option<PolyglotTree> {
-        // Java uses positional arguments, so they will always be accessible with the same route.
-
-        //if node.child(3) has 1 child => code, if node.child(3) has 2 children: 1st => language, 2nd => code
-        let nb_child: usize = node.child(3)?.child_count();
-
-        if nb_child == 3 {
-            //getting code
-            let code = node.child(3)?.child(1)?;
-
-            //getting source
-            let source = map_source.get(self.node_to_code(code));
-
-            //guetting language
-            let tmp_language = &source.expect("").0;
-
-            //getting file
-            let file: Option<&String> = map_file.get(&source.expect("source not found").1);
-
-            //open the file of the path
-            let mut openfile = File::open(file.expect("file not found")).unwrap();
-
-            //putting file code in a string
-            let mut code = String::new();
-            openfile.read_to_string(&mut code).unwrap();
-
-            //return CST
-            return Self::from_directory(code, tmp_language.clone(), self.working_dir.clone());
-        } else if nb_child == 5 {
-            //getting language and code
-            let language = node.child(3)?.child(1)?;
-            let code = node.child(3)?.child(3)?;
-            use crate::util;
-            let s = util::strip_quotes(self.node_to_code(language));
-
-            let new_lang = match util::language_string_to_enum(&s) {
-                Ok(l) => l,
-                Err(e) => {
-                    eprintln!("Could not convert argument {s} to language due to error: {e}",);
-                    return None;
-                }
-            };
-            let new_code = util::strip_quotes(self.node_to_code(code));
-            println!("{}", new_code);
-            //return CST
-            return Self::from_directory(new_code, new_lang, self.working_dir.clone());
-        }
-        //return none if no child or more than 2
-        return None;
     }
 }

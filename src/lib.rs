@@ -5,13 +5,15 @@ pub mod polyglot_tree;
 ///
 /// This module contains errors types, the Language enum as well as a few conversions functions.
 pub mod util;
+mod graal_utils;
+mod tree_sitter_utils;
 
 pub use polyglot_tree::polyglot_processor::{PolygotProcessor, TreePrinter};
 pub use polyglot_tree::polyglot_zipper::PolyglotZipper;
 pub use polyglot_tree::PolyglotTree;
 
 /// An enumeration that represents all languages supported by this crate. Current options are Python, JavaScript and Java.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Language {
     Python,
     JavaScript,

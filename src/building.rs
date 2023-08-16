@@ -5,6 +5,9 @@ mod java;
 // mod python;
 
 pub enum PolyglotUse {
+    EvalVariable {
+        name: String,
+    },
     EvalSource {
         source: String,
         lang: Language,
@@ -51,7 +54,7 @@ impl From<PolyglotUse> for PolyglotDefOrUse {
     }
 }
 
-enum PolyglotKind {
+pub enum PolyglotKind {
     Eval,
     Import,
     Export,
@@ -64,19 +67,31 @@ pub trait PolyglotBuilding {
     fn compute(self, node: &Self::Node<'_>) -> PolyglotTree;
 }
 
+pub enum AnaError {}
+
 trait StuffPerLanguage: PolyglotBuilding {
     fn find_polyglot_uses(&self) -> Vec<PolyglotUse>;
     fn find_polyglot_exports(&self) -> Vec<PolyglotDef>;
 
-    fn try_compute_polyglot_element(&self, node: &Self::Node<'_>) -> Option<PolyglotDefOrUse> {
+    fn try_compute_polyglot_element(
+        &self,
+        node: &Self::Node<'_>,
+    ) -> Option<Result<PolyglotDefOrUse, AnaError>> {
         if let Some(def) = self.try_compute_polyglot_def(node) {
-            Some(PolyglotDefOrUse::Def(def))
+            Some(def.map(|def| PolyglotDefOrUse::Def(def)))
         } else {
-            self.try_compute_polyglot_use(node).map(|uze| uze.into())
+            self.try_compute_polyglot_use(node)
+                .map(|uze| uze.map(|uze| uze.into()))
         }
     }
-    fn try_compute_polyglot_use(&self, node: &Self::Node<'_>) -> Option<PolyglotUse>;
-    fn try_compute_polyglot_def(&self, node: &Self::Node<'_>) -> Option<PolyglotDef>;
+    fn try_compute_polyglot_use(
+        &self,
+        node: &Self::Node<'_>,
+    ) -> Option<Result<PolyglotUse, AnaError>>;
+    fn try_compute_polyglot_def(
+        &self,
+        node: &Self::Node<'_>,
+    ) -> Option<Result<PolyglotDef, AnaError>>;
 
     // fn is_polyglot_eval_call(&self, node: Node) -> bool {
     //     match self.language {
