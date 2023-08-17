@@ -23,8 +23,8 @@ pub enum Language {
 
 type SourceFilePath = String;
 
-type SourceMap = std::collections::HashMap<String, (Language, String)>;
-type FileMap = std::collections::HashMap<String, String>;
+type SourceMap = std::collections::HashMap<std::path::PathBuf, (Language, String)>;
+type FileMap = std::collections::HashMap<std::path::PathBuf, String>;
 
 #[cfg(test)]
 mod tests;
