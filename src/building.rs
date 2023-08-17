@@ -1,6 +1,7 @@
 use crate::{Language, PolyglotTree, SourceFilePath};
 
 mod java;
+mod javascript;
 // mod javascript;
 // mod python;
 

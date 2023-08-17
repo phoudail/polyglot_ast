@@ -1,6 +1,8 @@
 use std::fs::File;
 use std::io::Read;
 
+use tree_sitter::Node;
+
 use crate::PolyglotTree;
 
 use super::{BuildingContext, StuffPerLanguage, PolyglotUse, PolyglotBuilding, AnaError, PolyglotDef};
