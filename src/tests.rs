@@ -22,5 +22,5 @@ fn js_test_file() {
 #[test]
 fn java_test() {
     let file = PathBuf::from("TestSamples/JavaTest.java");
-    PolyglotTree::from_path(file, crate::Language::Python);
+    PolyglotTree::from_path(file, crate::Language::Java);
 }

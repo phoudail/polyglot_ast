@@ -11,7 +11,8 @@ public class JavaTest2 {
 
         Context cx = Context.create();
 
-        File file1 = new File("TestSamples/pyprint.py");
+        File file0 = new File("TestSamples/pyprint.py");
+        File file1 = file0;
         File file2 = new File("TestSamples/export_x.py");
         File file3 = new File("TestSamples/JavaTest.java");
 
