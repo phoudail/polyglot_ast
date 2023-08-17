@@ -1,27 +1,39 @@
 use crate::{Language, PolyglotTree, SourceFilePath};
 
 mod java;
-mod javascript;
+// mod javascript;
 // mod javascript;
 // mod python;
 
+#[derive(Debug)]
 pub enum PolyglotUse {
+    // partially solved
     EvalVariable {
         name: String,
     },
+    // can be evaluated
     EvalSource {
         source: String,
         lang: Language,
     },
+    // can be evaluated if referenced file can be evaluated
     Eval {
         path: SourceFilePath,
         lang: Language,
     },
+    // can be evaluated if referenced file can be evaluated
     Import {
         path: SourceFilePath,
         lang: Language,
     },
 }
+// TODO rename into PolygloteUse, the old  PolygloteUse becomes UnSolvedPolyglotUse
+pub enum SolvedPolyglotUse {
+    Eval(PolygloteTreeHandle),
+    Import(PolygloteTreeHandle),
+}
+
+pub struct PolygloteTreeHandle(usize);
 
 impl PolyglotUse {
     pub fn get_kind(&self) -> PolyglotKind {
@@ -65,9 +77,10 @@ pub trait PolyglotBuilding {
     type Node<'a>;
     type Ctx;
     fn init(ctx: Self::Ctx) -> Self;
-    fn compute(self, node: &Self::Node<'_>) -> PolyglotTree;
+    fn compute(self) -> PolyglotTree;
 }
 
+#[derive(Debug)]
 pub enum AnaError {}
 
 trait StuffPerLanguage: PolyglotBuilding {
@@ -134,7 +147,9 @@ trait StuffPerLanguage: PolyglotBuilding {
     // }
 }
 
+/// take inpiration from grall_utils.rs
 struct BuildingContext {
+    pwd: std::path::PathBuf,
     map_source: crate::SourceMap,
     map_file: crate::FileMap,
 }
