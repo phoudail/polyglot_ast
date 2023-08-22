@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use polyglot_ast::{PolyglotTree, TreePrinter, Language};
+use polyglot_ast::{Language, PolyglotTree, TreePrinter};
 
 fn main() {
     let file = PathBuf::from("TestSamples/JavaTest3.java");

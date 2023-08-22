@@ -12,7 +12,7 @@ It currently supports java, javascript and python, and is built in a manner that
 <img src="Images/architecture.png">
 
 There is one class per language in the building folder. Each class contains functions to build the AST of a file in the language.
-If you want want to add a new language, you just have to add a new class in the building folder.
+If you want want to add a new language, you just have to add a new class in the building folder, and implement the functions of StuffPerLanguage trait.
 
 ## 📝 Running
 

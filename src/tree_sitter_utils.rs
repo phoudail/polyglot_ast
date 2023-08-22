@@ -1,5 +1,5 @@
 pub(crate) struct TreeSitterCST<'tree, 'text> {
-    cst: &'tree tree_sitter::Tree,
+    pub cst: &'tree tree_sitter::Tree,
     source: &'text str,
 }
 

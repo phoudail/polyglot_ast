@@ -7,6 +7,7 @@ use crate::{tree_sitter_utils::TreeSitterCST, PolyglotTree};
 
 use super::{
     AnaError, BuildingContext, PolyglotBuilding, PolyglotDef, PolyglotUse, StuffPerLanguage,
+    UnSolvedPolyglotUse,
 };
 
 struct JavaBuilder<'tree, 'text> {
@@ -22,27 +23,179 @@ impl<'tree, 'text> super::PolyglotBuilding for JavaBuilder<'tree, 'text> {
     }
 
     fn compute(self) -> PolyglotTree {
-        todo!()
+        todo!();
+        // return PolyglotTree {
+        //     tree: self.payload.cst,
+        //     code: self.payload.code,
+        //     working_dir: self.payload.working_dir,
+        //     language: crate::Language::Java,
+        //     node_to_subtrees_map: HashMap::new(),
+        // };
     }
 }
-impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
-    fn find_polyglot_uses(&self) -> Vec<super::PolyglotUse> {
-        todo!()
+
+trait Visit {
+    fn visit(&self, node: &PolyglotTree) -> Vec<Node>;
+    fn display(&self, node: &PolyglotTree);
+}
+
+struct PreOrder<'tree> {
+    cursor: tree_sitter::TreeCursor<'tree>,
+    state: VisitState,
+}
+#[derive(PartialEq, Eq)]
+enum VisitState {
+    Down,
+    Next,
+    Up,
+}
+
+impl<'tree> Iterator for PreOrder<'tree> {
+
+    type Item = Node<'tree>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        
+        if self.state == VisitState::Down{
+            if self.cursor.goto_first_child() {
+                self.state = VisitState::Down;
+            } else {
+                self.state = VisitState::Next;
+                return self.next();
+            }
+        } else if self.state == VisitState::Next{
+            if self.cursor.goto_next_sibling() {
+                self.state = VisitState::Down;
+            } else {
+                self.state = VisitState::Up;
+                return self.next();
+            }
+        } else if self.state == VisitState::Up {
+            if self.cursor.goto_parent() {
+                self.state = VisitState::Next;
+                return self.next(); // TODO caution, might stack overflow 
+            } else {
+                // finish
+            }
+        }
+
+        Some(self.cursor.node())
+    }
+}
+
+impl<'tree> PreOrder<'tree> {
+    fn new(tree: &'tree tree_sitter::Tree) -> Self {
+        let cursor = tree.walk();
+        let state = VisitState::Down;
+        Self { cursor, state }
+    }
+    fn node(&self) -> Node<'tree> {
+        self.cursor.node()
+    }
+    //the visit function must browse and store all the sheets of the ast, using the goto_firstchild(), goto_nextsibling(), goto_parent() methods
+    fn visit(&self, node: &PolyglotTree) -> Vec<Node> {
+        let mut nodes = Vec::new();
+
+        // let mut cursor = self.walk();
+        // if cursor.goto_first_child(){
+        //     todo!()
+        // }
+        // else {
+             
+        // }
+
+
+
+        return nodes;
+        
+    }
+    fn display(&self, node: &PolyglotTree) {
+        dbg!("{}",node);
+    }
+
+}
+
+impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {        
+
+    fn find_polyglot_uses(&self) -> Vec<super::UnSolvedPolyglotUse> {
+        println!("PASSAGE DANS FIND POLYGLOT USES");
+        let mut uses = Vec::new();
+        let tree = self.payload.cst;
+
+        let mut stack = vec![tree.root_node()];
+
+        while let Some(node) = stack.pop() {
+            if node.kind().eq("import_declaration") {
+                let r#use = UnSolvedPolyglotUse::Import {
+                    path: self
+                        .payload
+                        .node_to_code(&node.child(1).unwrap().child(0).unwrap())
+                        .to_string(),
+                    lang: crate::Language::Java,
+                };
+                println!("DEBUG");
+                dbg!(&r#use);
+                uses.push(r#use);
+            } else if node.kind().eq("method_invocation") {
+                let r#use = UnSolvedPolyglotUse::Eval {
+                    path: "??".to_string(),
+                    lang: crate::Language::Java,
+                };
+                uses.push(r#use);
+            } else if node.kind().eq("local_variable_declaration") {
+                let r#use = UnSolvedPolyglotUse::EvalVariable {
+                    name: self
+                        .payload
+                        .node_to_code(&node.child(1).unwrap().child(0).unwrap())
+                        .to_string(),
+                };
+                uses.push(r#use);
+            } else if node.kind().eq("identifier") {
+                let r#use = UnSolvedPolyglotUse::EvalSource {
+                    source: self
+                        .payload
+                        .node_to_code(&node.child(1).unwrap().child(0).unwrap())
+                        .to_string(),
+                    lang: crate::Language::Java,
+                };
+                uses.push(r#use);
+            }
+            //node.children()
+        }
+        return uses;
     }
 
     fn find_polyglot_exports(&self) -> Vec<super::PolyglotDef> {
-        todo!()
+        let mut exports = Vec::new();
+        let tree = self.payload.cst;
+        let mut stack = vec![tree.root_node()];
+        while let Some(node) = stack.pop() {
+            if self.payload.node_to_code(&tree.root_node()) == "??" {
+                let r#use = PolyglotDef::ExportValue {
+                    name: self
+                        .payload
+                        .node_to_code(&tree.root_node().child(1).unwrap())
+                        .to_string(),
+                    value: self
+                        .payload
+                        .node_to_code(&tree.root_node().child(3).unwrap())
+                        .to_string(),
+                };
+                exports.push(r#use);
+            }
+        }
+        return exports;
     }
 
     fn try_compute_polyglot_use(
         &self,
         node: &Self::Node<'_>,
-    ) -> Option<Result<super::PolyglotUse, AnaError>> {
+    ) -> Option<Result<super::UnSolvedPolyglotUse, AnaError>> {
         let call = self.get_polyglot_call(node)?;
         let s = self.payload.node_to_code(&call);
         if s == "eval" {
             let r = if s == "" {
-                PolyglotUse::Eval {
+                UnSolvedPolyglotUse::Eval {
                     path: todo!(),
                     lang: todo!(),
                 }
@@ -52,7 +205,7 @@ impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
                     .node_to_code(&node.child(3).unwrap().child(1).unwrap());
                 let lang = crate::util::strip_quotes(lang);
                 dbg!(&lang);
-                PolyglotUse::EvalSource {
+                UnSolvedPolyglotUse::EvalSource {
                     source: self
                         .payload
                         .node_to_code(&node.child(3).unwrap().child(3).unwrap())
@@ -62,7 +215,7 @@ impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
             };
             Some(Ok(r))
         } else if s == "getMember" {
-            let r = PolyglotUse::Import {
+            let r = UnSolvedPolyglotUse::Import {
                 path: todo!(),
                 lang: todo!(),
             };
@@ -105,7 +258,7 @@ impl<'tree, 'text> JavaBuilder<'tree, 'text> {
     fn compute_polyglot_use(
         &self,
         call_expr: &<JavaBuilder<'tree, 'text> as PolyglotBuilding>::Node<'_>,
-    ) -> Option<PolyglotUse> {
+    ) -> Option<UnSolvedPolyglotUse> {
         // Java uses positional arguments, so they will always be accessible with the same route.
 
         //if node.child(3) has 1 child => code, if node.child(3) has 2 children: 1st => language, 2nd => code
@@ -125,7 +278,7 @@ impl<'tree, 'text> JavaBuilder<'tree, 'text> {
             let name = self.payload.node_to_code(&parameter);
             let name = name.to_string();
 
-            Some(PolyglotUse::EvalVariable { name })
+            Some(UnSolvedPolyglotUse::EvalVariable { name })
 
             // dbg!(name);
             // let a = {
@@ -302,7 +455,7 @@ mod test {
     use std::{collections::HashMap, fmt::Display};
 
     use crate::{
-        building::{BuildingContext, PolyglotBuilding, StuffPerLanguage},
+        building::{BuildingContext, PolyglotBuilding, PolygloteTreeHandle, StuffPerLanguage, java::PreOrder},
         tree_sitter_utils::TreeSitterCST,
         PolyglotTree,
     };
@@ -326,6 +479,80 @@ mod test {
             r#"}}"#
         )
     }
+
+    #[test]
+    fn other_test(){
+        let main_content = r#"
+        Context cx = Context.create();
+        context.eval("python", "print('hello')");
+        "#;
+
+    }
+
+    // #[test]
+    // fn test_find_polyglot() {
+    //     let main_content = r#"
+    //     Context cx = Context.create();
+    //     context.eval("python", "print('hello')");
+    //     "#;
+    //     println!("TEST FIND POLYGLOT");
+    //     let file_content = main_wrap(main_content);
+    //     let tree = crate::tree_sitter_utils::parse(&file_content);
+    //     let cst = crate::tree_sitter_utils::into(&tree, &file_content);
+    //     let builder = &JavaBuilder::init(cst);
+    //     for u in JavaBuilder::find_polyglot_uses(builder) {
+    //         println!("{:?}", u);
+    //         match u {
+    //             super::PolyglotUse(s)=> dbg!(s),
+    //             // super::PolyglotUse::Import(s) => dbg!(s),
+    //             // super::PolyglotUse::Eval(s) => dbg!(s),
+    //             Err(e) => {
+    //                 for e in e.iter() {
+    //                     match e.solve(s)?.solve() {
+    //                         T0(ee) => dbg!(ee),
+    //                         T1(s) => aux(s),
+    //                     }
+    //                 }
+    //             S(s)=>aux(s),
+    //             }
+    //         }
+    //     }
+    // }
+
+
+    #[test]
+    fn test_polyglot_use() {
+        let main_content = r#"
+        Context cx = Context.create();
+        context.eval("python", "print('hello')");
+        "#;
+        println!("TEST POLYGLOT USE");
+        let file_content = main_wrap(main_content);
+        let tree = crate::tree_sitter_utils::parse(&file_content);
+        let cst = crate::tree_sitter_utils::into(&tree, &file_content);
+        let builder = &JavaBuilder::init(cst);
+        //dbg!(builder);
+
+        let tree = tree.as_ref().unwrap();
+        dbg!(tree.root_node().to_sexp());
+        let class = tree.root_node().child(5).unwrap();
+        dbg!(class.to_sexp());
+        let meth = class.child(3).unwrap().child(1).unwrap();
+        dbg!(meth.to_sexp());
+        let poly_eval = meth.child(4).unwrap().child(2).unwrap().child(0).unwrap();
+        dbg!(poly_eval.to_sexp());
+        let r#use = builder.try_compute_polyglot_use(&poly_eval);
+        let extraction = JavaBuilder::find_polyglot_uses(builder);
+        dbg!(extraction);
+
+        //extraction into find_polyglot_uses
+        // let tree = tree.as_ref().unwrap();
+        // println!("TEST POLYGLOT USE");
+        // dbg!(tree.root_node().to_sexp());
+        // let extraction = JavaBuilder::find_polyglot_uses(builder);
+        // dbg!(extraction);
+    }
+
     #[test]
     fn direct() {
         let main_content = r#"
@@ -339,11 +566,14 @@ mod test {
 
         // TODO extract into find_polyglot_uses
         let tree = tree.as_ref().unwrap();
+        println!("TEST DIRECT");
+        dbg!(tree.root_node().to_sexp());
         let class = tree.root_node().child(5).unwrap();
+        dbg!(class.to_sexp());
         let meth = class.child(3).unwrap().child(1).unwrap();
+        dbg!(meth.to_sexp());
         let poly_eval = meth.child(4).unwrap().child(2).unwrap().child(0).unwrap();
         dbg!(poly_eval.to_sexp());
-
         let r#use = builder.try_compute_polyglot_use(&poly_eval);
         dbg!(r#use);
     }
@@ -360,6 +590,18 @@ mod test {
 
         // TODO extract into find_polyglot_uses
         let tree = tree.as_ref().unwrap();
+        let mut pre_order = PreOrder::new(tree);
+
+        dbg!(pre_order.node().kind());
+        dbg!(pre_order.next().map(|n| n.kind()));
+        dbg!(pre_order.next());
+        dbg!(pre_order.next());
+        dbg!(pre_order.next());
+        dbg!(pre_order.next());
+        dbg!(pre_order.next());
+
+        println!("DIRECT2");
+        dbg!(tree.root_node().to_sexp());
         let class = tree.root_node().child(5).unwrap();
         let meth = class.child(3).unwrap().child(1).unwrap();
         let meth_body = &meth.child(4).unwrap();
@@ -419,4 +661,15 @@ mod test {
         // TODO extract into find_polyglot_uses
         let tree = tree.as_ref().unwrap();
     }
+    //todo
+    //faire test for u in find_polyglot_uses
+    //commencer par petits cas avec solved(s) puis faire cas importants avec eval(e) et eval(s)
+    //faire des assert equals dans les tests pour vérifier qu'on a bien les valeurs qu'on veut
+
+    //les eval E et eval S correspondent au todo à compléter
+    //ce qui est polyglotte c'est pas la ligne entière de code mais juste le eval(s)
+
+    //pour les noms de déclaration, possibilité de modifier les enums et d'en rajouter
+    //ils ne sont pas spécialement adaptés
+    //pas obligés d'avoir les bon noms pour les bons use il faut juste prendre tous les cas poluyglottes
 }
