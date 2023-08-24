@@ -6,7 +6,7 @@ mod java;
 // mod python;
 
 #[derive(Debug)]
-pub enum PolyglotUse {
+pub enum UnSolvedPolyglotUse {
     // partially solved
     EvalVariable {
         name: String,
@@ -27,17 +27,21 @@ pub enum PolyglotUse {
         lang: Language,
     },
 }
-// TODO rename into PolygloteUse, the old  PolygloteUse becomes UnSolvedPolyglotUse
-pub enum SolvedPolyglotUse {
+pub enum PolyglotUse {
     Eval(PolygloteTreeHandle),
     Import(PolygloteTreeHandle),
 }
 
 pub struct PolygloteTreeHandle(usize);
 
-impl PolyglotUse {
+impl UnSolvedPolyglotUse {
     pub fn get_kind(&self) -> PolyglotKind {
-        todo!()
+        match self {
+            UnSolvedPolyglotUse::EvalVariable { .. } => PolyglotKind::Eval,
+            UnSolvedPolyglotUse::EvalSource { .. } => PolyglotKind::Eval,
+            UnSolvedPolyglotUse::Eval { .. } => PolyglotKind::Eval,
+            UnSolvedPolyglotUse::Import { .. } => PolyglotKind::Import,
+        }
     }
 }
 
@@ -46,23 +50,28 @@ pub enum PolyglotDef {
 }
 impl PolyglotDef {
     pub fn get_kind(&self) -> PolyglotKind {
-        todo!()
+    match self {
+        PolyglotDef::ExportValue { .. } => PolyglotKind::Export,
     }
+}
 }
 
 enum PolyglotDefOrUse {
     Def(PolyglotDef),
-    Use(PolyglotUse),
+    Use(UnSolvedPolyglotUse),
 }
 
 impl PolyglotDefOrUse {
     pub fn get_kind(&self) -> PolyglotKind {
-        todo!()
+        match self {
+            PolyglotDefOrUse::Def(def) => def.get_kind(),
+            PolyglotDefOrUse::Use(use_) => use_.get_kind(),
+        }
     }
 }
 
-impl From<PolyglotUse> for PolyglotDefOrUse {
-    fn from(value: PolyglotUse) -> Self {
+impl From<UnSolvedPolyglotUse> for PolyglotDefOrUse {
+    fn from(value: UnSolvedPolyglotUse) -> Self {
         PolyglotDefOrUse::Use(value)
     }
 }
@@ -84,7 +93,7 @@ pub trait PolyglotBuilding {
 pub enum AnaError {}
 
 trait StuffPerLanguage: PolyglotBuilding {
-    fn find_polyglot_uses(&self) -> Vec<PolyglotUse>;
+    fn find_polyglot_uses(&self) -> Vec<UnSolvedPolyglotUse>;
     fn find_polyglot_exports(&self) -> Vec<PolyglotDef>;
 
     fn try_compute_polyglot_element(
@@ -101,7 +110,7 @@ trait StuffPerLanguage: PolyglotBuilding {
     fn try_compute_polyglot_use(
         &self,
         node: &Self::Node<'_>,
-    ) -> Option<Result<PolyglotUse, AnaError>>;
+    ) -> Option<Result<UnSolvedPolyglotUse, AnaError>>;
     fn try_compute_polyglot_def(
         &self,
         node: &Self::Node<'_>,
