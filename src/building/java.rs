@@ -76,6 +76,8 @@ impl<'tree> Iterator for PreOrder<'tree> {
                 return self.next(); // TODO caution, might stack overflow 
             } else {
                 // finish
+                //println!("ICI NEXT FAIT CRASH POLYGLOT USE");
+                return None;
             }
         }
 
@@ -84,7 +86,7 @@ impl<'tree> Iterator for PreOrder<'tree> {
 }
 
 impl<'tree> PreOrder<'tree> {
-    fn new(tree: &'tree tree_sitter::Tree) -> Self {
+    pub fn new(tree: &'tree tree_sitter::Tree) -> Self {
         let cursor = tree.walk();
         let state = VisitState::Down;
         Self { cursor, state }
@@ -92,23 +94,20 @@ impl<'tree> PreOrder<'tree> {
     fn node(&self) -> Node<'tree> {
         self.cursor.node()
     }
-    //the visit function must browse and store all the sheets of the ast, using the goto_firstchild(), goto_nextsibling(), goto_parent() methods
-    fn visit(&self, node: &PolyglotTree) -> Vec<Node> {
+    //the visit function must use the next function to go to the next node
+    fn visit(&mut self, cst:TreeSitterCST) -> Vec<Node> {
+        println!("PASSAGE DANS VISIT");
         let mut nodes = Vec::new();
 
-        // let mut cursor = self.walk();
-        // if cursor.goto_first_child(){
-        //     todo!()
-        // }
-        // else {
-             
-        // }
-
-
+        while let Some(node) = self.next() {
+            dbg!(node);
+            nodes.push(node);
+        }
+        println!("FIN WHILE");
 
         return nodes;
-        
     }
+
     fn display(&self, node: &PolyglotTree) {
         dbg!("{}",node);
     }
@@ -122,9 +121,14 @@ impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
         let mut uses = Vec::new();
         let tree = self.payload.cst;
 
-        let mut stack = vec![tree.root_node()];
+        //let mut stack = vec![tree.root_node()];
 
-        while let Some(node) = stack.pop() {
+        for node in PreOrder::new(tree) {
+            dbg!(node);
+            dbg!(node.kind());
+            dbg!(node.to_sexp());
+            dbg!(node.child_count());
+            //dbg!(node.child(0));
             if node.kind().eq("import_declaration") {
                 let r#use = UnSolvedPolyglotUse::Import {
                     path: self
@@ -135,34 +139,51 @@ impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
                 };
                 println!("DEBUG");
                 dbg!(&r#use);
+                eprintln!("{:?}",uses);
                 uses.push(r#use);
             } else if node.kind().eq("method_invocation") {
                 let r#use = UnSolvedPolyglotUse::Eval {
                     path: "??".to_string(),
                     lang: crate::Language::Java,
                 };
+                dbg!(&r#use);
                 uses.push(r#use);
-            } else if node.kind().eq("local_variable_declaration") {
+            //anciennement local_variable_declaration
+            } else if node.kind().eq(".") {
+                println!("PASSAGE DANS .");
                 let r#use = UnSolvedPolyglotUse::EvalVariable {
                     name: self
                         .payload
                         .node_to_code(&node.child(1).unwrap().child(0).unwrap())
                         .to_string(),
                 };
+                dbg!(&r#use);
                 uses.push(r#use);
             } else if node.kind().eq("identifier") {
+                println!("PASSAGE DANS IDENTIFIER");
+                // dbg!(self.payload.node_to_code(&node.child(1).unwrap().child(0).unwrap()));
+                // dbg!(self
+                //     .payload
+                //     .node_to_code(&node.child(1).unwrap().child(0).unwrap())
+                //     .to_string());
                 let r#use = UnSolvedPolyglotUse::EvalSource {
                     source: self
                         .payload
-                        .node_to_code(&node.child(1).unwrap().child(0).unwrap())
+                        .node_to_code(&node)
                         .to_string(),
                     lang: crate::Language::Java,
                 };
+                println!("FIN D'INSTANCIATION DE r#use");
+                dbg!(&r#use);
                 uses.push(r#use);
+            }
+            else{
+                println!("autre")
             }
             //node.children()
         }
-        return uses;
+        println!("FIN WHILE FIND POLYGLOT USES");
+        return dbg!(uses);
     }
 
     fn find_polyglot_exports(&self) -> Vec<super::PolyglotDef> {
@@ -481,11 +502,38 @@ mod test {
     }
 
     #[test]
-    fn other_test(){
+    fn test_preorder_implem() {
         let main_content = r#"
         Context cx = Context.create();
         context.eval("python", "print('hello')");
         "#;
+        println!("TEST PREORDER IMPLEM");
+        let file_content = main_wrap(main_content);
+        let tree = crate::tree_sitter_utils::parse(&file_content);
+        let cst = crate::tree_sitter_utils::into(&tree, &file_content);
+        let builder = &JavaBuilder::init(cst);
+        let tree = tree.as_ref().unwrap();
+        let mut pre_order = PreOrder::new(tree);
+        dbg!(pre_order.node().kind());
+        dbg!(pre_order.next().map(|n| n.kind()));
+        //todo assert number of nodes with preorder visits
+    }
+
+    #[test]
+    fn test_visit_function(){
+        let main_content = r#"
+        Context cx = Context.create();
+        context.eval("python", "print('hello')");
+        "#;
+        println!("TEST VISIT FUNCTION");
+        let file_content = main_wrap(main_content);
+        let tree = crate::tree_sitter_utils::parse(&file_content);
+        let cst = crate::tree_sitter_utils::into(&tree, &file_content);
+        let tree = tree.as_ref().unwrap();
+        let mut pre_order = PreOrder::new(tree);
+
+        let nodes = PreOrder::visit(&mut pre_order, cst);
+        dbg!(nodes);
 
     }
 
@@ -524,7 +572,9 @@ mod test {
     fn test_polyglot_use() {
         let main_content = r#"
         Context cx = Context.create();
-        context.eval("python", "print('hello')");
+
+        Builder builder = Source.newBuilder("python", new File("TestSamples/pyprint.py"));
+        context.eval(builder.build());
         "#;
         println!("TEST POLYGLOT USE");
         let file_content = main_wrap(main_content);
@@ -542,7 +592,7 @@ mod test {
         let poly_eval = meth.child(4).unwrap().child(2).unwrap().child(0).unwrap();
         dbg!(poly_eval.to_sexp());
         let r#use = builder.try_compute_polyglot_use(&poly_eval);
-        let extraction = JavaBuilder::find_polyglot_uses(builder);
+        let extraction = builder.find_polyglot_uses();
         dbg!(extraction);
 
         //extraction into find_polyglot_uses
