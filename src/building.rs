@@ -5,7 +5,7 @@ mod java;
 // mod javascript;
 // mod python;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum UnSolvedPolyglotUse {
     // partially solved
     EvalVariable {
@@ -50,10 +50,10 @@ pub enum PolyglotDef {
 }
 impl PolyglotDef {
     pub fn get_kind(&self) -> PolyglotKind {
-    match self {
-        PolyglotDef::ExportValue { .. } => PolyglotKind::Export,
+        match self {
+            PolyglotDef::ExportValue { .. } => PolyglotKind::Export,
+        }
     }
-}
 }
 
 enum PolyglotDefOrUse {
@@ -89,7 +89,7 @@ pub trait PolyglotBuilding {
     fn compute(self) -> PolyglotTree;
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum AnaError {}
 
 trait StuffPerLanguage: PolyglotBuilding {

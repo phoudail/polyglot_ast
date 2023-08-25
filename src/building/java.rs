@@ -3,7 +3,9 @@ use std::io::Read;
 
 use tree_sitter::Node;
 
-use crate::{tree_sitter_utils::TreeSitterCST, PolyglotTree};
+use crate::{Language, tree_sitter_utils::TreeSitterCST, PolyglotTree};
+
+//use super::EvalSource;
 
 use super::{
     AnaError, BuildingContext, PolyglotBuilding, PolyglotDef, PolyglotUse, StuffPerLanguage,
@@ -94,6 +96,7 @@ impl<'tree> PreOrder<'tree> {
     fn node(&self) -> Node<'tree> {
         self.cursor.node()
     }
+
     //the visit function must use the next function to go to the next node
     fn visit(&mut self, cst:TreeSitterCST) -> Vec<Node> {
         println!("PASSAGE DANS VISIT");
@@ -476,7 +479,7 @@ mod test {
     use std::{collections::HashMap, fmt::Display};
 
     use crate::{
-        building::{BuildingContext, PolyglotBuilding, PolygloteTreeHandle, StuffPerLanguage, java::PreOrder},
+        building::{BuildingContext, PolyglotBuilding, PolygloteTreeHandle, StuffPerLanguage, java::PreOrder, UnSolvedPolyglotUse},
         tree_sitter_utils::TreeSitterCST,
         PolyglotTree,
     };
@@ -514,9 +517,8 @@ mod test {
         let builder = &JavaBuilder::init(cst);
         let tree = tree.as_ref().unwrap();
         let mut pre_order = PreOrder::new(tree);
-        dbg!(pre_order.node().kind());
-        dbg!(pre_order.next().map(|n| n.kind()));
-        //todo assert number of nodes with preorder visits
+        assert_eq!(pre_order.node().kind(), "program");
+        assert_eq!(pre_order.next().map(|n| n.kind()), Some("import_declaration"));
     }
 
     #[test]
@@ -528,44 +530,13 @@ mod test {
         println!("TEST VISIT FUNCTION");
         let file_content = main_wrap(main_content);
         let tree = crate::tree_sitter_utils::parse(&file_content);
-        let cst = crate::tree_sitter_utils::into(&tree, &file_content);
+        let mut cst = crate::tree_sitter_utils::into(&tree, &file_content);
         let tree = tree.as_ref().unwrap();
         let mut pre_order = PreOrder::new(tree);
 
         let nodes = PreOrder::visit(&mut pre_order, cst);
-        dbg!(nodes);
-
+        assert_eq!(nodes.len(), 111);
     }
-
-    // #[test]
-    // fn test_find_polyglot() {
-    //     let main_content = r#"
-    //     Context cx = Context.create();
-    //     context.eval("python", "print('hello')");
-    //     "#;
-    //     println!("TEST FIND POLYGLOT");
-    //     let file_content = main_wrap(main_content);
-    //     let tree = crate::tree_sitter_utils::parse(&file_content);
-    //     let cst = crate::tree_sitter_utils::into(&tree, &file_content);
-    //     let builder = &JavaBuilder::init(cst);
-    //     for u in JavaBuilder::find_polyglot_uses(builder) {
-    //         println!("{:?}", u);
-    //         match u {
-    //             super::PolyglotUse(s)=> dbg!(s),
-    //             // super::PolyglotUse::Import(s) => dbg!(s),
-    //             // super::PolyglotUse::Eval(s) => dbg!(s),
-    //             Err(e) => {
-    //                 for e in e.iter() {
-    //                     match e.solve(s)?.solve() {
-    //                         T0(ee) => dbg!(ee),
-    //                         T1(s) => aux(s),
-    //                     }
-    //                 }
-    //             S(s)=>aux(s),
-    //             }
-    //         }
-    //     }
-    // }
 
 
     #[test]
@@ -624,9 +595,18 @@ mod test {
         dbg!(meth.to_sexp());
         let poly_eval = meth.child(4).unwrap().child(2).unwrap().child(0).unwrap();
         dbg!(poly_eval.to_sexp());
-        let r#use = builder.try_compute_polyglot_use(&poly_eval);
-        dbg!(r#use);
+        let r#use: Option<Result<UnSolvedPolyglotUse, crate::building::AnaError>> = builder.try_compute_polyglot_use(&poly_eval);
+        //dbg!(r#use);
+        assert_eq!(r#use,Some(
+            Ok(
+                UnSolvedPolyglotUse::EvalSource {
+                    source: ("\"print('hello')\"").to_string(),
+                    lang: crate::Language::Python,
+                },
+            ),
+        ));
     }
+    
     #[test]
     fn direct2() {
         let main_content = r#"

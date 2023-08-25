@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::Language;
+pub use crate::Language;
 
 #[derive(Error, Debug)]
 #[error("Invalid argument received")]

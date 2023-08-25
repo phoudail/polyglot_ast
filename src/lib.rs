@@ -5,8 +5,8 @@ pub mod polyglot_tree;
 ///
 /// This module contains errors types, the Language enum as well as a few conversions functions.
 pub mod util;
-mod graal_utils;
-mod tree_sitter_utils;
+pub mod graal_utils;
+pub mod tree_sitter_utils;
 
 pub use polyglot_tree::polyglot_processor::{PolygotProcessor, TreePrinter};
 pub use polyglot_tree::polyglot_zipper::PolyglotZipper;
