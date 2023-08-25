@@ -17,10 +17,10 @@ pub mod polyglot_zipper;
 #[derive(Debug, Clone)]
 pub struct PolyglotTree {
     tree: Tree,
-    code: String,
-    working_dir: PathBuf,
+    code: std::sync::Arc<str>,
+    // working_dir: PathBuf,
     language: Language,
-    node_to_subtrees_map: HashMap<usize, PolyglotTree>,
+    // node_to_subtrees_map: HashMap<usize, PolyglotTree>,
 }
 
 struct PolyglotTreeBuilder<'a, 'b, 'ts> {
@@ -31,7 +31,7 @@ struct PolyglotTreeBuilder<'a, 'b, 'ts> {
     node_stack: Vec<Node<'ts>>,
 }
 
-impl<'a:'ts, 'b, 'ts> PolyglotTreeBuilder<'a, 'b, 'ts> {
+impl<'a: 'ts, 'b, 'ts> PolyglotTreeBuilder<'a, 'b, 'ts> {
     fn new(
         tree: &'a PolyglotTree,
         node_tree_map: &'a mut HashMap<usize, PolyglotTree>,
@@ -52,16 +52,15 @@ impl<'a:'ts, 'b, 'ts> PolyglotTreeBuilder<'a, 'b, 'ts> {
     fn get_code(&self) -> &str {
         &self.tree.code
     }
-    fn get_working_dir(&self) -> &PathBuf {
-        &self.tree.working_dir
-    }
+    // fn get_working_dir(&self) -> &PathBuf {
+    //     &self.tree.working_dir
+    // }
 }
 
 impl PartialEq for PolyglotTree {
     fn eq(&self, other: &Self) -> bool {
-        self.code == other.code
-            && self.language == other.language
-            && self.node_to_subtrees_map == other.node_to_subtrees_map
+        self.code == other.code && self.language == other.language
+        // && self.node_to_subtrees_map == other.node_to_subtrees_map
     }
 }
 
@@ -70,10 +69,10 @@ impl Eq for PolyglotTree {}
 type SourceMap = HashMap<String, (Language, String)>;
 type FileMap = HashMap<String, String>;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct ParsingResult {
     tree: Option<PolyglotTree>,
-    errors: std::sync::Arc<Vec<String>>,
+    errors: Vec<String>,
 }
 
 impl ParsingResult {
@@ -83,6 +82,35 @@ impl ParsingResult {
 }
 
 impl PolyglotTree {
+    pub fn parse(code: std::sync::Arc<str>, language: Language) -> ParsingResult {
+        let mut parser = Parser::new();
+        let ts_lang = util::language_enum_to_treesitter(&language);
+
+        parser
+                .set_language(ts_lang)
+                .expect("Error loading the language grammar into the parser; if this error persists, consider reporting it to the library maintainers.");
+
+        let tree = parser.parse(code.as_bytes(), None);
+
+        let Some(tree) = tree else {
+                return ParsingResult {
+                    tree: None,
+                    errors: vec![],
+                };
+            };
+
+        let mut result = PolyglotTree {
+            tree,
+            code,
+            // working_dir: PathBuf::new(),
+            language,
+            // node_to_subtrees_map: HashMap::new(),
+        };
+        ParsingResult {
+            tree: Some(result),
+            errors: vec![]
+        }
+    }
     // /// Given a program's code and a Language, returns a PolyglotTree instance that represents the program.
     // ///
     // /// The provided AST is built recursively from variations of the `polyglot.eval` function call in different languages, and can be traversed across language boundaries.

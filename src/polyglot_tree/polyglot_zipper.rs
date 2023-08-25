@@ -61,18 +61,19 @@ impl PolyglotZipper<'_> {
     /// Move this zipper to the first child of the contained node.
     /// Returns `true` if there were any children, otherwise returns `false` and does not move.
     pub fn goto_first_child(&mut self) -> bool {
-        let my_id = self.node().id();
-        let subtree = self.tree.node_to_subtrees_map.get(&my_id);
+        // let my_id = self.node().id();
+        // let subtree = self.tree.node_to_subtrees_map.get(&my_id);
 
-        match subtree {
-            Some(t) => {
-                self.tree = t;
-                self.node = t.root_node().walk();
-                true
-            }
+        // match subtree {
+        //     Some(t) => {
+        //         self.tree = t;
+        //         self.node = t.root_node().walk();
+        //         true
+        //     }
 
-            None => self.node.goto_first_child(),
-        }
+        //     None => self.node.goto_first_child(),
+        // }
+        false
     }
 
     /// Move this zipper to the first sibling of the contained node.
@@ -151,12 +152,12 @@ impl PolyglotZipper<'_> {
 impl PolyglotZipper<'_> {
     /// Create the zipper for the child at the given index, where zero represents the first child.
     pub fn child(&self, i: usize) -> Option<PolyglotZipper> {
-        if self.is_polyglot_eval_call() {
-            // if we are an eval call, we actually want to jump to the corresponding subtree
-            let my_id = self.node().id();
-            let subtree = self.tree.node_to_subtrees_map.get(&my_id)?;
-            return Some(Self::new(subtree));
-        }
+        // if self.is_polyglot_eval_call() {
+        //     // if we are an eval call, we actually want to jump to the corresponding subtree
+        //     let my_id = self.node().id();
+        //     let subtree = self.tree.node_to_subtrees_map.get(&my_id)?;
+        //     return Some(Self::new(subtree));
+        // }
 
         Some(Self::with_node(self.tree, self.node.node().child(i)?))
     }
