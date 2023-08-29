@@ -1,3 +1,5 @@
+#[derive(Debug)]
+
 pub(crate) struct TreeSitterCST<'tree, 'text> {
     pub cst: &'tree tree_sitter::Tree,
     source: &'text str,
@@ -9,12 +11,19 @@ impl<'tree, 'text> TreeSitterCST<'tree, 'text> {
     }
 }
 
+impl<'tree, 'text> tree_sitter::TextProvider<'text> for &TreeSitterCST<'tree, 'text> {
+    type I = std::iter::Once<&'text [u8]>;
+
+    fn text(&mut self, node: tree_sitter::Node) -> Self::I {
+        std::iter::once(self.node_to_code(&node).as_bytes())
+    }
+}
 trait Node<'a> {
     fn child(&self, i: usize) -> Self;
 }
 
 pub(crate) fn into<'tree, 'text>(
-    tree: &'tree Option<tree_sitter::Tree>,
+    tree: Option<&'tree tree_sitter::Tree>,
     file_content: &'text str,
 ) -> TreeSitterCST<'tree, 'text> {
     let cst = TreeSitterCST {

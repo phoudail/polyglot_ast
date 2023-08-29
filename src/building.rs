@@ -4,29 +4,6 @@ mod java;
 // mod javascript;
 // mod javascript;
 // mod python;
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum UnSolvedPolyglotUse {
-    // partially solved
-    EvalVariable {
-        name: String,
-    },
-    // can be evaluated
-    EvalSource {
-        source: String,
-        lang: Language,
-    },
-    // can be evaluated if referenced file can be evaluated
-    Eval {
-        path: SourceFilePath,
-        lang: Language,
-    },
-    // can be evaluated if referenced file can be evaluated
-    Import {
-        path: SourceFilePath,
-        lang: Language,
-    },
-}
 pub enum PolyglotUse {
     Eval(PolygloteTreeHandle),
     Import(PolygloteTreeHandle),
@@ -34,13 +11,11 @@ pub enum PolyglotUse {
 
 pub struct PolygloteTreeHandle(usize);
 
-impl UnSolvedPolyglotUse {
+impl PolyglotUse {
     pub fn get_kind(&self) -> PolyglotKind {
         match self {
-            UnSolvedPolyglotUse::EvalVariable { .. } => PolyglotKind::Eval,
-            UnSolvedPolyglotUse::EvalSource { .. } => PolyglotKind::Eval,
-            UnSolvedPolyglotUse::Eval { .. } => PolyglotKind::Eval,
-            UnSolvedPolyglotUse::Import { .. } => PolyglotKind::Import,
+            PolyglotUse::Eval { .. } => PolyglotKind::Eval,
+            PolyglotUse::Import { .. } => PolyglotKind::Import,
         }
     }
 }
@@ -58,7 +33,7 @@ impl PolyglotDef {
 
 enum PolyglotDefOrUse {
     Def(PolyglotDef),
-    Use(UnSolvedPolyglotUse),
+    Use(PolyglotUse),
 }
 
 impl PolyglotDefOrUse {
@@ -70,8 +45,8 @@ impl PolyglotDefOrUse {
     }
 }
 
-impl From<UnSolvedPolyglotUse> for PolyglotDefOrUse {
-    fn from(value: UnSolvedPolyglotUse) -> Self {
+impl From<PolyglotUse> for PolyglotDefOrUse {
+    fn from(value: PolyglotUse) -> Self {
         PolyglotDefOrUse::Use(value)
     }
 }
@@ -83,7 +58,7 @@ pub enum PolyglotKind {
 }
 
 pub trait PolyglotBuilding {
-    type Node<'a>;
+    type Node;
     type Ctx;
     fn init(ctx: Self::Ctx) -> Self;
     fn compute(self) -> PolyglotTree;
@@ -93,27 +68,32 @@ pub trait PolyglotBuilding {
 pub enum AnaError {}
 
 trait StuffPerLanguage: PolyglotBuilding {
-    fn find_polyglot_uses(&self) -> Vec<UnSolvedPolyglotUse>;
+    type UnsolvedUse;
+    fn find_polyglot_uses(&self) -> Vec<Self::UnsolvedUse>;
     fn find_polyglot_exports(&self) -> Vec<PolyglotDef>;
 
     fn try_compute_polyglot_element(
         &self,
-        node: &Self::Node<'_>,
+        node: &Self::Node,
     ) -> Option<Result<PolyglotDefOrUse, AnaError>> {
         if let Some(def) = self.try_compute_polyglot_def(node) {
             Some(def.map(|def| PolyglotDefOrUse::Def(def)))
         } else {
-            self.try_compute_polyglot_use(node)
-                .map(|uze| uze.map(|uze| uze.into()))
+            self.try_compute_polyglot_use(node).map(|uze| {
+                uze.map(|uze| {
+                    // uze.into()
+                    todo!()
+                })
+            })
         }
     }
     fn try_compute_polyglot_use(
         &self,
-        node: &Self::Node<'_>,
-    ) -> Option<Result<UnSolvedPolyglotUse, AnaError>>;
+        node: &Self::Node,
+    ) -> Option<Result<Self::UnsolvedUse, AnaError>>;
     fn try_compute_polyglot_def(
         &self,
-        node: &Self::Node<'_>,
+        node: &Self::Node,
     ) -> Option<Result<PolyglotDef, AnaError>>;
 
     // fn is_polyglot_eval_call(&self, node: Node) -> bool {
