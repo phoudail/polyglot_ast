@@ -3,7 +3,7 @@ use std::io::Read;
 
 use tree_sitter::Node;
 
-use crate::{tree_sitter_utils::TreeSitterCST, Language, PolyglotTree};
+use crate::{tree_sitter_utils::TreeSitterCST, util, Language, PolyglotTree};
 
 //use super::EvalSource;
 
@@ -15,23 +15,23 @@ use super::{
 #[derive(Debug, PartialEq, Eq)]
 pub enum UnSolvedPolyglotUse<Node> {
     // partially solved
-    EvalContext { name: Node },
+    EvalSource { name: Node },
     // partially solved
     EvalBuilder { name: Node },
     // can be evaluated
-    EvalSource { source: Node, lang: Language },
+    EvalInline { inline: Node, lang: Language },
     // can be evaluated if referenced file can be evaluated
-    Eval { path: Node, lang: Language },
+    EvalPath { path: Node, lang: Language },
     // can be evaluated if referenced file can be evaluated
     Import { path: Node, lang: Language },
 }
 impl<Ref> UnSolvedPolyglotUse<Ref> {
     pub fn get_kind(&self) -> PolyglotKind {
         match self {
-            UnSolvedPolyglotUse::EvalContext { .. } => PolyglotKind::Eval,
-            UnSolvedPolyglotUse::EvalBuilder { .. } => PolyglotKind::Eval,
             UnSolvedPolyglotUse::EvalSource { .. } => PolyglotKind::Eval,
-            UnSolvedPolyglotUse::Eval { .. } => PolyglotKind::Eval,
+            UnSolvedPolyglotUse::EvalBuilder { .. } => PolyglotKind::Eval,
+            UnSolvedPolyglotUse::EvalInline { .. } => PolyglotKind::Eval,
+            UnSolvedPolyglotUse::EvalPath { .. } => PolyglotKind::Eval,
             UnSolvedPolyglotUse::Import { .. } => PolyglotKind::Import,
         }
     }
@@ -259,6 +259,13 @@ impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
             )
         )
         (argument_list
+            (method_invocation 
+                object: (method_invocation) @direct_build
+                name: (identifier) @build
+                (#match? @build "build")
+            )
+        )
+        (argument_list
             (identifier) @indirect
         )
         (argument_list
@@ -269,16 +276,23 @@ impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
 )"#,
             )
             .unwrap();
+            dbg!(&q);
             let q_c = &mut tree_sitter::QueryCursor::new();
             let mut q_res = q_c.matches(&q, node.clone(), &self.payload);
             if let Some(m) = q_res.next() {
                 assert_eq!(self.payload.node_to_code(&m.captures[0].node), "eval");
                 match q.capture_names()[m.captures[1].index as usize].as_str() {
                     "indirect" => {
+                        let lang = self.payload.node_to_code(&m.captures[1].node);
+                        dbg!(lang);
                         dbg!(m.captures[1].node.to_sexp());
                         let indirect = self.payload.node_to_code(&m.captures[1].node);
                         dbg!(indirect);
-                        todo!()
+                        let source = m.captures[1].node;
+                        return Some(Ok(UnSolvedPolyglotUse::EvalInline {
+                            inline: source,
+                            lang: crate::Language::Python,
+                        }));
                     }
                     "indirect_build" => {
                         let indirect_build = &m.captures[1].node;
@@ -288,20 +302,33 @@ impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
                         }));
                     }
                     "lang" => {
-                        let lang = self.payload.node_to_code(&m.captures[1].node);
+                        let lang =
+                            util::strip_quotes(self.payload.node_to_code(&m.captures[1].node));
+                        //let lang = self.payload.node_to_code(&m.captures[1].node);
                         let code = &m.captures[2].node;
-                        dbg!(lang, self.payload.node_to_code(code));
-                        return Some(Ok(UnSolvedPolyglotUse::EvalSource {
-                            source: code.clone(),
+                        //let code = util::strip_quotes(self.payload.node_to_code(tmp_code));
+                        dbg!(&lang, &code);
+                        //todo!()
+                        return Some(Ok(UnSolvedPolyglotUse::EvalInline {
+                            inline: code.clone(),
                             lang: crate::util::language_string_to_enum(&lang).unwrap(),
                         }));
+                        // return Some(Ok(UnSolvedPolyglotUse::EvalSource {
+                        //     source: code.clone(),
+                        //     lang: crate::util::language_string_to_enum(&lang).unwrap(),
+                        // }));
+                    }
+                    "direct_build" => {
+                        todo!("wait for extraction of Source.newBuilder");
                     }
                     x => {
                         dbg!(x);
                     }
                 }
             }
-            todo!();
+            panic!();
+            //return None;
+
             // let arg_list = node.child(3).unwrap();
             // dbg!(self.payload.node_to_code(&arg_list));
             // dbg!(arg_list.to_sexp());
@@ -395,7 +422,7 @@ impl<'tree, 'text> JavaBuilder<'tree, 'text> {
             // let name = self.payload.node_to_code(&parameter);
             // let name = name.to_string();
 
-            Some(UnSolvedPolyglotUse::EvalContext { name })
+            Some(UnSolvedPolyglotUse::EvalSource { name })
 
             // dbg!(name);
             // let a = {
@@ -454,6 +481,8 @@ impl<'tree, 'text> JavaBuilder<'tree, 'text> {
 
 mod use_solver {
     use std::path::PathBuf;
+
+    use crate::{tree_sitter_utils::TreeSitterCST, util};
     #[derive(Debug, PartialEq, Eq)]
     pub struct Reference<'tree>(pub Node<'tree>);
     pub(crate) enum TwoTransitions<T0, T1> {
@@ -486,7 +515,7 @@ mod use_solver {
         ) -> Result<
             ThreeTransitions<
                 NoSource<Reference<'tree>>,
-                NoBuilder<Reference<'tree>>,
+                NoBuilder<'tree, 'tree, Reference<'tree>>,
                 PolygloteSource<Node<'tree>, Node<'tree>>,
             >,
             SolvingError,
@@ -496,26 +525,166 @@ mod use_solver {
         }
     }
     #[derive(Debug)]
-    pub struct NoBuilder<S> {
-        pub(crate) content: S,
+    pub struct NoBuilder<'tree, 'text, S> {
+        pub(crate) local: S,
+        pub(crate) global: &'tree TreeSitterCST<'tree, 'text>,
     }
-    impl<'tree> NoBuilder<Reference<'tree>> {
+    impl<'tree, T> NoBuilder<'tree, 'tree, T> {
+        fn map<U>(self, local: U) -> NoBuilder<'tree, 'tree, U> {
+            NoBuilder {
+                local: local,
+                global: self.global,
+            }
+        }
+    }
+    impl<'tree> NoBuilder<'tree, 'tree, Reference<'tree>> {
         pub(crate) fn solve(
             self,
             refanalysis: &'tree impl ReferenceAnalysis<Reff = Reference<'tree>>,
         ) -> Result<NoBuilder<Node<'tree>>, SolvingError> {
-            let source = refanalysis.solve(&self.content)?;
-            Ok(NoBuilder { content: source })
+            let builder = refanalysis.solve(&self.local)?;
+            Ok(self.map(builder))
+        }
+        // pub fn node_to_code(&self, node: &tree_sitter::Node<'tree>) -> &'tree str {
+        //     &self.payload.node_to_code(node)
+        // }
+    }
+    // L
+    fn process_lang<'tree, 'text>(
+        local: Node<'tree>,
+        global: &TreeSitterCST<'tree, 'text>,
+    ) -> Result<PolygloteSource<Node<'tree>, Node<'tree>>, SolvingError> {
+        let q = tree_sitter::Query::new(
+            tree_sitter_java::language(),
+            r#"(string_literal) @direct
+                (identifier) @indirect"#,
+        )
+        .unwrap();
+        println!("DEBUG SOLVE");
+        dbg!(&q);
+        let q_c = &mut tree_sitter::QueryCursor::new();
+        let mut q_res = q_c.captures(&q, local, global);
+        if let Some(m) = q_res.next() {
+            match q.capture_names()[m.1].as_str() {
+                "direct" => {
+                    todo!();
+                }
+                "indirect" => {
+                    todo!();
+                }
+                x => {
+                    panic!("{}", x)
+                }
+            }
+        } else {
+            panic!()
         }
     }
-    impl<'tree> NoBuilder<Node<'tree>> {
+    // C
+    fn process_code<'tree, 'text>(
+        local: Node<'tree>,
+        global: &TreeSitterCST<'tree, 'text>,
+    ) -> Result<PolygloteSource<Node<'tree>, Node<'tree>>, SolvingError> {
+        let q = tree_sitter::Query::new(
+            tree_sitter_java::language(),
+            r#"
+                (string_literal) @direct
+                (identifier) @code2
+                (object_creation_expression
+                    arguments: [
+                        (argument_list
+                            (string_literal) @code4
+                        )
+                        (argument_list
+                            (identifier) @code4
+                        )
+                    ]
+                )
+"#,
+        )
+        .unwrap();
+        println!("DEBUG SOLVE");
+        dbg!(&q);
+        let q_c = &mut tree_sitter::QueryCursor::new();
+        let mut q_res = q_c.captures(&q, local, global);
+        for m in q_res {
+            if m.0.captures[m.1].node != local {
+                continue;
+            }
+            match q.capture_names()[m.1].as_str() {
+                "direct" => {
+                    todo!();
+                }
+                "indirect" => {
+                    todo!();
+                }
+                x => {
+                    panic!("{}", x)
+                }
+            }
+        }
+        return Err(SolvingError);
+    }
+    // N
+    fn process_new_builder<'tree, 'text>(
+        local: Node<'tree>,
+        global: &TreeSitterCST<'tree, 'text>,
+    ) -> Result<PolygloteSource<Node<'tree>, Node<'tree>>, SolvingError> {
+        let q = tree_sitter::Query::new(
+            tree_sitter_java::language(),
+            r#"(method_invocation
+        object: (identifier) @Source
+        (#match? @Source "Source")
+        name: (identifier) @newBuilder
+        (#match? @newBuilder "newBuilder")
+        arguments: (argument_list
+            (_) @lang
+            (_) @code
+        )
+) @match "#,
+        )
+        .unwrap();
+        println!("DEBUG SOLVE");
+        dbg!(&q);
+        let q_c = &mut tree_sitter::QueryCursor::new();
+        let mut q_res = q_c.matches(&q, local, global);
+
+        if let Some(m) = q_res.next() {
+            if m.captures[0].node != local {
+                eprintln!("did not match pattern exactly on given node");
+                return Err(SolvingError);
+            }
+            dbg!(m.captures[1].node.to_sexp());
+            let source = global.node_to_code(&m.captures[1].node);
+            dbg!(source);
+            let newBuilder = global.node_to_code(&m.captures[2].node);
+            dbg!(newBuilder);
+
+            let lang = &m.captures[3].node;
+            let code = &m.captures[4].node;
+
+            dbg!(global.node_to_code(lang));
+            dbg!(global.node_to_code(code));
+
+            let lang = process_lang(lang.clone(), global);
+            let code = process_code(code.clone(), global);
+
+            todo!();
+        } else {
+            panic!()
+        }
+    }
+    impl<'tree, 'text> NoBuilder<'tree, 'text, Node<'tree>> {
         pub(crate) fn solve(
             self,
         ) -> Result<
-            TwoTransitions<NoBuilder<Reference<'tree>>, PolygloteSource<Node<'tree>, Node<'tree>>>,
+            TwoTransitions<
+                NoBuilder<'tree, 'text, Reference<'tree>>,
+                PolygloteSource<Node<'tree>, Node<'tree>>,
+            >,
             SolvingError,
         > {
-            dbg!(self.content.to_sexp());
+            dbg!(self.local.to_sexp());
             let q = tree_sitter::Query::new(
                 tree_sitter_java::language(),
                 r#"(local_variable_declaration
@@ -525,67 +694,49 @@ mod use_solver {
         name: (identifier) 
         value: [
             (identifier) @indirect_build
-            (method_invocation
-                object: (identifier) @Source
-                (#match? @Source "Source")
-                name: (identifier) @newBuilder
-                (#match? @newBuilder "newBuilder")
-                arguments: [
-                    (argument_list
-                        (string_literal) @lang0
-                        (string_literal) @code0
-                    )
-                    (argument_list
-                        (identifier) @lang1
-                        (string_literal) @code1
-                    )
-                    (argument_list
-                        (string_literal) @lang2
-                        (identifier) @code2
-                    )
-                    (argument_list
-                        (identifier) @lang3
-                        (identifier) @code3
-                    )
-                    (argument_list
-                        (string_literal) @lang4
-                        (object_creation_expression
-                            arguments: (argument_list
-                                (string_literal) @code4
-                            )
-                        )
-                    )
-                    (argument_list
-                        (identifier) @lang5
-                        (object_creation_expression
-                            arguments: (argument_list
-                                (string_literal) @code5
-                            )
-                        )
-                    )
-                ]
-            )
+            (method_invocation) @direct_build
         ]
     )
-)"#,
+) @match "#,
             )
             .unwrap();
-        // TODO check qualified name of Builder
+            println!("DEBUG SOLVE");
+            dbg!(&q);
             let q_c = &mut tree_sitter::QueryCursor::new();
-            // let mut q_res = q_c.matches(&q, node.clone(), &self.payload);
-            // if let Some(m) = q_res.next() {
-            //     assert_eq!(self.payload.node_to_code(&m.captures[0].node), "eval");
-            //     match q.capture_names()[m.captures[1].index as usize].as_str() {}
-            // } else {
-            //     todo!()
-            // }
-            todo!()
+            let mut q_res = q_c.matches(&q, self.local, self.global);
+            //dbg!(&q_res);
+            if let Some(m) = q_res.next() {
+                dbg!(&m);
+                dbg!(&m.captures[0].node);
+                dbg!(&q.capture_names()[m.captures[0].index as usize]);
+                if &m.captures[0].node != &self.local {
+                    eprintln!("did not match pattern exactly on given node");
+                    return Err(SolvingError);
+                }
+                match q.capture_names()[m.captures[2].index as usize].as_str() {
+                    "direct_build" => process_new_builder(m.captures[2].node.clone(), &self.global)
+                        .map(|s| TwoTransitions::T1(s)),
+                    "indirect_build" => {
+                        let indirect_build = m.captures[2].node.clone();
+                        dbg!(self.global.node_to_code(&indirect_build));
+                        return Ok(TwoTransitions::T0(NoBuilder {
+                            local: Reference(indirect_build),
+                            global: self.global,
+                        }));
+                    }
+                    x => {
+                        unreachable!()
+                    }
+                }
+            } else {
+                panic!();
+            }
         }
     }
 
     pub(crate) struct PolygloteSource<L, C> {
-        language: L,
-        code: C,
+        pub(crate) language: L,
+        pub(crate) code: C,
     }
     type CodeElement = (usize, usize);
     pub(crate) type Node<'tree> = tree_sitter::Node<'tree>;
@@ -781,59 +932,29 @@ mod test {
         dbg!(builder.node_to_code(&poly_eval));
         let r#use = builder.try_compute_polyglot_use(&poly_eval);
         dbg!(&r#use);
+        let r#use = r#use.unwrap().unwrap();
+        let expected_ref_node = poly_eval
+            .child(3)
+            .unwrap()
+            .child(1)
+            .unwrap()
+            .child(0)
+            .unwrap();
         assert_eq!(
             r#use,
-            Some(Ok(UnSolvedPolyglotUse::EvalBuilder {
-                name: poly_eval
-                    .child(3)
-                    .unwrap()
-                    .child(1)
-                    .unwrap()
-                    .child(0)
-                    .unwrap()
-            },),)
+            UnSolvedPolyglotUse::EvalBuilder {
+                name: expected_ref_node
+            }
         );
-        struct MockedRefAna<'tree> {
-            builder: &'tree JavaBuilder<'tree, 'tree>,
-        };
-        impl<'tree> super::use_solver::ReferenceAnalysis for MockedRefAna<'tree> {
-            type Reff = super::use_solver::Reference<'tree>;
-            fn solve<'tr>(
-                &'tr self,
-                reference: &Self::Reff,
-            ) -> Result<super::use_solver::Node<'tr>, super::use_solver::SolvingError> {
-                dbg!(&reference.0);
-                if reference.0.start_position() == tree_sitter::Point::new(13, 16)
-                    && reference.0.end_position() == tree_sitter::Point::new(13, 23)
-                {
-                    let tree = self.builder.payload.cst;
-                    dbg!(tree.root_node().to_sexp());
-                    let class = tree.root_node().child(5).unwrap();
-                    dbg!(class.to_sexp());
-                    let meth = class.child(3).unwrap().child(1).unwrap();
-                    dbg!(meth.to_sexp());
-                    let build = meth.child(4).unwrap().child(2).unwrap();
-                    return Ok(build);
-                } else {
-                    panic!()
-                }
-            }
-        }
-
-        let r#use = r#use.unwrap().unwrap();
-
         if let UnSolvedPolyglotUse::EvalBuilder { name } = r#use {
-            let r#use = super::use_solver::NoBuilder {
-                content: super::use_solver::Reference(name.clone()),
-            };
-            let mocked_ref_ana = MockedRefAna { builder };
-            let r#use = r#use.solve(&mocked_ref_ana);
-            dbg!(&r#use);
-            let r#use = r#use.unwrap();
-            match r#use.solve().unwrap() {
-                super::use_solver::TwoTransitions::T0(_) => panic!(),
-                super::use_solver::TwoTransitions::T1(_) => todo!(),
-            }
+            assert_eq!(name, expected_ref_node);
+            let decl = meth.child(4).unwrap().child(2).unwrap();
+            dbg!(&decl.to_sexp());
+            // let decl = super::use_solver::NoBuilder { content: decl, payload: builder.payload.cst };
+            // match decl.solve().unwrap() {
+            //     super::use_solver::TwoTransitions::T0(_) => panic!(),
+            //     super::use_solver::TwoTransitions::T1(_) => todo!(),
+            // }
         } else {
             panic!()
         }
@@ -877,8 +998,12 @@ mod test {
         //dbg!(r#use);
         assert_eq!(
             r#use,
-            Some(Ok(UnSolvedPolyglotUse::EvalSource {
-                source: poly_eval,
+            Some(Ok(UnSolvedPolyglotUse::EvalInline {
+                inline: poly_eval
+                    .child_by_field_name("arguments")
+                    .unwrap()
+                    .named_child(1)
+                    .unwrap(),
                 lang: crate::Language::Python,
             },),)
         );
@@ -902,14 +1027,6 @@ mod test {
         // TODO extract into find_polyglot_uses
         let tree = tree.as_ref().unwrap();
         let mut pre_order = PreOrder::new(tree);
-
-        // dbg!(pre_order.node().kind());
-        // dbg!(pre_order.next().map(|n| n.kind()));
-        // dbg!(pre_order.next());
-        // dbg!(pre_order.next());
-        // dbg!(pre_order.next());
-        // dbg!(pre_order.next());
-        // dbg!(pre_order.next());
 
         println!("DIRECT2");
         dbg!(tree.root_node().to_sexp());
@@ -936,6 +1053,7 @@ mod test {
     }
     #[test]
     fn indirect() {
+        //test for lang4 case
         let main_content = r#"
         Context cx = Context.create();
 
@@ -955,10 +1073,61 @@ mod test {
         let meth = class.child(3).unwrap().child(1).unwrap();
         let meth_body = &meth.child(4).unwrap();
         dbg!(meth_body.to_sexp());
-        let poly_eval = meth_body.child(2).unwrap().child(0).unwrap();
+        let poly_eval = meth_body.child(3).unwrap().child(0).unwrap();
         dbg!(poly_eval.to_sexp());
         let r#use = builder.try_compute_polyglot_use(&poly_eval);
-        assert_eq!(r#use, None);
+        dbg!(&r#use);
+
+        let r#use = r#use.unwrap().unwrap();
+        let expected_ref_node = poly_eval
+            .child_by_field_name("arguments")
+            .unwrap()
+            .named_child(0)
+            .unwrap()
+            .child_by_field_name("object")
+            .unwrap();
+        println!("DEBUG");
+        dbg!(poly_eval.to_sexp());
+        dbg!(poly_eval
+            .child_by_field_name("arguments")
+            .unwrap()
+            .to_sexp());
+        dbg!(poly_eval
+            .child_by_field_name("arguments")
+            .unwrap()
+            .named_child(0)
+            .unwrap()
+            .to_sexp());
+        dbg!(expected_ref_node.to_sexp());
+        assert_eq!(
+            r#use,
+            UnSolvedPolyglotUse::EvalBuilder {
+                name: expected_ref_node
+            }
+        );
+        // r#use would have been resolved into builder_decl with a reference analysis
+        if let UnSolvedPolyglotUse::EvalBuilder { name } = r#use {
+            assert_eq!(name, expected_ref_node);
+            let builder_decl = meth_body.child(2).unwrap();
+            dbg!(&builder_decl.to_sexp());
+            let decl = super::use_solver::NoBuilder {
+                local: builder_decl,
+                global: &builder.payload,
+            };
+            match decl.solve().unwrap() {
+                super::use_solver::TwoTransitions::T0(x) => {
+                    dbg!(x.local.0.to_sexp());
+                    panic!()
+                }
+                super::use_solver::TwoTransitions::T1(x) => {
+                    dbg!(builder.node_to_code(&x.code));
+                    dbg!(builder.node_to_code(&x.language));
+                    panic!()
+                }
+            }
+        } else {
+            panic!()
+        }
     }
     #[test]
     fn indirect1() {
@@ -981,14 +1150,63 @@ mod test {
         let meth = class.child(3).unwrap().child(1).unwrap();
         let meth_body = &meth.child(4).unwrap();
         dbg!(meth_body.to_sexp());
-        let poly_eval = meth_body.child(2).unwrap().child(0).unwrap();
+        let poly_eval = meth_body.child(3).unwrap().child(0).unwrap();
         dbg!(poly_eval.to_sexp());
         let r#use = builder.try_compute_polyglot_use(&poly_eval);
+        dbg!(&r#use);
 
-        assert_eq!(r#use, None);
+        let r#use = r#use.unwrap().unwrap();
+        let expected_ref_node = poly_eval
+            .child_by_field_name("arguments")
+            .unwrap()
+            .named_child(0)
+            .unwrap();
+        //dbg!(poly_eval.child(0));
+        println!("DEBUG");
+        dbg!(poly_eval.to_sexp());
+        dbg!(poly_eval
+            .child_by_field_name("arguments")
+            .unwrap()
+            .to_sexp());
+        dbg!(poly_eval
+            .child_by_field_name("arguments")
+            .unwrap()
+            .named_child(0)
+            .unwrap()
+            .to_sexp());
+        dbg!(expected_ref_node.to_sexp());
+        assert_eq!(
+            r#use,
+            UnSolvedPolyglotUse::EvalInline {
+                inline: expected_ref_node,
+                lang: crate::Language::Python,
+            }
+        );
+
+        if let UnSolvedPolyglotUse::EvalInline {
+            inline: source,
+            lang,
+        } = r#use
+        {
+            assert_eq!(source, expected_ref_node);
+            assert_eq!(lang, crate::Language::Python);
+            let source_decl = meth_body.child(2).unwrap();
+            dbg!(&source_decl.to_sexp());
+            let decl = super::use_solver::NoBuilder {
+                local: source_decl,
+                global: &builder.payload,
+            };
+            match decl.solve().unwrap() {
+                super::use_solver::TwoTransitions::T0(_) => panic!(),
+                super::use_solver::TwoTransitions::T1(_) => todo!(),
+            }
+        } else {
+            panic!()
+        }
     }
     #[test]
     fn indirect2() {
+        //TODO : c'est un eval context ???
         let main_content = r#"
         Context cx = Context.create();
 
@@ -1009,12 +1227,47 @@ mod test {
         let meth = class.child(3).unwrap().child(1).unwrap();
         let meth_body = &meth.child(4).unwrap();
         dbg!(meth_body.to_sexp());
-        let poly_eval = meth_body.child(2).unwrap().child(0).unwrap();
+        let poly_eval = meth_body.child(4).unwrap().child(0).unwrap();
         dbg!(poly_eval.to_sexp());
-        // let r#use: Option<Result<UnSolvedPolyglotUse, crate::building::AnaError>> = builder.try_compute_polyglot_use(&poly_eval);
-        // assert_eq!(r#use, None);
-        let finding = builder.find_polyglot_uses();
-        dbg!(finding);
+        // let finding = builder.find_polyglot_uses();
+        // dbg!(finding);
+
+        let r#use = builder.try_compute_polyglot_use(&poly_eval);
+        dbg!(&r#use);
+
+        let r#use = r#use.unwrap().unwrap();
+        let expected_ref_node = poly_eval
+            .child_by_field_name("arguments")
+            .unwrap()
+            .named_child(0)
+            .unwrap();
+        assert_eq!(
+            r#use,
+            UnSolvedPolyglotUse::EvalInline {
+                inline: expected_ref_node,
+                lang: crate::Language::Python,
+            }
+        );
+        if let UnSolvedPolyglotUse::EvalInline {
+            inline: source,
+            lang,
+        } = r#use
+        {
+            assert_eq!(source, expected_ref_node);
+            assert_eq!(lang, crate::Language::Python);
+            let source_decl = meth_body.child(3).unwrap();
+            dbg!(&source_decl.to_sexp());
+            let decl = super::use_solver::NoBuilder {
+                local: source_decl,
+                global: &builder.payload,
+            };
+            match decl.solve().unwrap() {
+                super::use_solver::TwoTransitions::T0(_) => panic!(),
+                super::use_solver::TwoTransitions::T1(_) => todo!(),
+            }
+        } else {
+            panic!()
+        }
     }
 
     //todo
