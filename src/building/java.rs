@@ -482,7 +482,7 @@ impl<'tree, 'text> JavaBuilder<'tree, 'text> {
 mod use_solver {
     use std::path::PathBuf;
 
-    use crate::{tree_sitter_utils::TreeSitterCST, util};
+    use crate::{tree_sitter_utils::TreeSitterCST, util, Language};
     #[derive(Debug, PartialEq, Eq)]
     pub struct Reference<'tree>(pub Node<'tree>);
     pub(crate) enum TwoTransitions<T0, T1> {
@@ -549,6 +549,37 @@ mod use_solver {
         //     &self.payload.node_to_code(node)
         // }
     }
+    //F
+    fn process_file<'tree, 'text>(
+        local: Node<'tree>,
+        global: &TreeSitterCST<'tree, 'text>,
+    ) -> Result<PolygloteSource<Node<'tree>, Node<'tree>>, SolvingError> {
+        let q = tree_sitter::Query::new(
+            tree_sitter_java::language(),
+            r#"(object_creation expression) @direct
+                (P) @indirect"#,
+        )
+        .unwrap();
+        println!("DEBUG PROCESS FILE");
+        dbg!(&q);
+        let q_c = &mut tree_sitter::QueryCursor::new();
+        let mut q_res = q_c.captures(&q, local, global);
+        if let Some(m) = q_res.next() {
+            match q.capture_names()[m.1].as_str() {
+                "direct" => {
+                    todo!();
+                }
+                "indirect" => {
+                    todo!();
+                }
+                x => {
+                    panic!("{}", x)
+                }
+            }
+        } else {
+            panic!()
+        }
+    }
     // L
     fn process_lang<'tree, 'text>(
         local: Node<'tree>,
@@ -560,17 +591,38 @@ mod use_solver {
                 (identifier) @indirect"#,
         )
         .unwrap();
-        println!("DEBUG SOLVE");
+        println!("DEBUG PROCESS LANG");
         dbg!(&q);
         let q_c = &mut tree_sitter::QueryCursor::new();
         let mut q_res = q_c.captures(&q, local, global);
         if let Some(m) = q_res.next() {
+            let lang = &m.0.captures[0].node;
             match q.capture_names()[m.1].as_str() {
                 "direct" => {
-                    todo!();
+                    println!("DIRECT");
+                    // let lang = util::strip_quotes(global.node_to_code(&m.0.captures[0].node));
+                    // dbg!(lang);
+                    let lang:PolygloteSource<Node<'tree>, Node<'tree>> = PolygloteSource {
+                        language: m.0.captures[0].node,
+                        //code: process_code(local, global),
+                        code: todo!()
+                    };
+                    dbg!(lang);
+                    // return lang;
+                    // dbg!(lang);
+                    // dbg!(global.node_to_code(&lang));
+                    // dbg!(lang.to_sexp());
+                    todo!()
                 }
                 "indirect" => {
-                    todo!();
+                    println!("INDIRECT");
+                    //let mut lang = process_lang(lang.clone(), global);
+                    let mut lang:TwoTransitions<NoSource<Node<'tree>>, NoBuilder<'tree, 'tree, Reference<'tree>>> = 
+                    NoSource {
+                        content: Reference(lang.clone())
+                    }.solve(&global).unwrap();
+                    dbg!(&lang);
+                    lang
                 }
                 x => {
                     panic!("{}", x)
@@ -603,20 +655,31 @@ mod use_solver {
 "#,
         )
         .unwrap();
-        println!("DEBUG SOLVE");
+        println!("DEBUG PROCESS CODE");
         dbg!(&q);
         let q_c = &mut tree_sitter::QueryCursor::new();
         let mut q_res = q_c.captures(&q, local, global);
         for m in q_res {
-            if m.0.captures[m.1].node != local {
-                continue;
-            }
+            println!("PASSAGE DANS FOR");
+            dbg!(q.capture_names()[m.1].as_str());
+            // if m.0.captures[m.1].node != local {
+            //     println!("PASSAGE DANS IF");
+            //     continue;
+            // }
             match q.capture_names()[m.1].as_str() {
                 "direct" => {
-                    todo!();
+                    println!("DIRECT");
+                    let code = m.0.captures[0].node;
+                    dbg!(&code);
+                    dbg!(global.node_to_code(&code));
+                    todo!()
                 }
                 "indirect" => {
-                    todo!();
+                    println!("INDIRECT");
+                    //TODO : appeler la méthode pour path ?
+                    let code = process_code(m.0.captures[0].node.clone(), global);
+                    dbg!(&code);
+                    return code
                 }
                 x => {
                     panic!("{}", x)
@@ -644,7 +707,7 @@ mod use_solver {
 ) @match "#,
         )
         .unwrap();
-        println!("DEBUG SOLVE");
+        println!("DEBUG PROCESS NEW BUILDER");
         dbg!(&q);
         let q_c = &mut tree_sitter::QueryCursor::new();
         let mut q_res = q_c.matches(&q, local, global);
@@ -660,15 +723,17 @@ mod use_solver {
             let newBuilder = global.node_to_code(&m.captures[2].node);
             dbg!(newBuilder);
 
-            let lang = &m.captures[3].node;
+            //let lang = &m.captures[3].node;
             let code = &m.captures[4].node;
+            let lang = &m.captures[3].node;
 
-            dbg!(global.node_to_code(lang));
+            // dbg!(global.node_to_code(lang));
             dbg!(global.node_to_code(code));
+            dbg!(global.node_to_code(lang));
 
-            let lang = process_lang(lang.clone(), global);
+            // let lang = process_lang(lang.clone(), global);
             let code = process_code(code.clone(), global);
-
+            let lang = process_lang(lang.clone(), global);
             todo!();
         } else {
             panic!()
@@ -734,6 +799,7 @@ mod use_solver {
         }
     }
 
+    #[derive(Debug)]
     pub(crate) struct PolygloteSource<L, C> {
         pub(crate) language: L,
         pub(crate) code: C,
@@ -1268,6 +1334,26 @@ mod test {
         } else {
             panic!()
         }
+    }
+
+
+    //test process_new_builder function
+    #[test]
+    fn test_new_builder_function() {
+        let main_content = r#"
+        Context cx = Context.create();
+        cx.eval("python", "print('hello')");
+        "#;
+        println!("TEST NEW BUILDER FUNCTION");
+        let file_content = main_wrap(main_content);
+        let tree = crate::tree_sitter_utils::parse(&file_content);
+        let cst = crate::tree_sitter_utils::into(tree.as_ref(), &file_content);
+        let builder = &JavaBuilder::init(cst);
+        let tree = tree.as_ref().unwrap();
+        
+        //let result = crate::building::java::use_solver::process_new_builder(todo!(),todo!(to));
+
+        
     }
 
     //todo
