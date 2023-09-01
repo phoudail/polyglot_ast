@@ -617,12 +617,13 @@ mod use_solver {
                 "indirect" => {
                     println!("INDIRECT");
                     //let mut lang = process_lang(lang.clone(), global);
-                    let mut lang:TwoTransitions<NoSource<Node<'tree>>, NoBuilder<'tree, 'tree, Reference<'tree>>> = 
-                    NoSource {
-                        content: Reference(lang.clone())
-                    }.solve(&global).unwrap();
-                    dbg!(&lang);
-                    lang
+                    // let mut lang:TwoTransitions<NoSource<Node<'tree>>, NoBuilder<'tree, 'tree, Reference<'tree>>> = 
+                    // NoSource {
+                    //     content: Reference(lang.clone())
+                    // }.solve(&global).unwrap();
+                    // dbg!(&lang);
+                    // lang
+                    todo!()
                 }
                 x => {
                     panic!("{}", x)
