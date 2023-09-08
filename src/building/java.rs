@@ -735,7 +735,11 @@ mod use_solver {
             // let lang = process_lang(lang.clone(), global);
             let code = process_code(code.clone(), global);
             let lang = process_lang(lang.clone(), global);
-            todo!();
+            // return Ok(PolygloteSource {
+            //     language: lang,
+            //     code: code,
+            // });
+            todo!()
         } else {
             panic!()
         }
@@ -963,7 +967,6 @@ mod test {
         Context cx = Context.create();
         cx.eval("python", "print('hello')");
         "#;
-        println!("TEST VISIT FUNCTION");
         let file_content = main_wrap(main_content);
         let tree = crate::tree_sitter_utils::parse(&file_content);
         let mut cst = crate::tree_sitter_utils::into(tree.as_ref(), &file_content);
@@ -1050,19 +1053,16 @@ mod test {
         let cst = crate::tree_sitter_utils::into(tree.as_ref(), &file_content);
         let builder = &JavaBuilder::init(cst);
 
-        // TODO extract into find_polyglot_uses
         let tree = tree.as_ref().unwrap();
-        println!("TEST DIRECT");
-        dbg!(tree.root_node().to_sexp());
+
         let class = tree.root_node().child(5).unwrap();
-        dbg!(class.to_sexp());
+
         let meth = class.child(3).unwrap().child(1).unwrap();
-        dbg!(meth.to_sexp());
+
         let poly_eval = meth.child(4).unwrap().child(2).unwrap().child(0).unwrap();
-        //dbg!(poly_eval);
-        dbg!(poly_eval.to_sexp());
+
         let r#use = builder.try_compute_polyglot_use(&poly_eval);
-        //dbg!(r#use);
+
         assert_eq!(
             r#use,
             Some(Ok(UnSolvedPolyglotUse::EvalInline {

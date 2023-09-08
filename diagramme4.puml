@@ -1,0 +1,10 @@
+@startuml
+participant PolyglotFinder
+participant LanguageFinder
+participant CodeFinder
+
+PolyglotFinder -> LanguageFinder:
+PolyglotFinder -> CodeFinder:
+CodeFinder -> PolyglotFinder
+LanguageFinder -> PolyglotFinder 
+@endmul
