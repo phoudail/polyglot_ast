@@ -38,7 +38,7 @@ impl<Ref> UnSolvedPolyglotUse<Ref> {
 }
 
 #[derive(Debug)]
-struct JavaBuilder<'tree, 'text> {
+pub(crate) struct JavaBuilder<'tree, 'text> {
     payload: TreeSitterCST<'tree, 'text>,
     // temporary stuff
 }
@@ -602,10 +602,10 @@ mod use_solver {
                     println!("DIRECT");
                     // let lang = util::strip_quotes(global.node_to_code(&m.0.captures[0].node));
                     // dbg!(lang);
-                    let lang:PolygloteSource<Node<'tree>, Node<'tree>> = PolygloteSource {
+                    let lang: PolygloteSource<Node<'tree>, Node<'tree>> = PolygloteSource {
                         language: m.0.captures[0].node,
                         //code: process_code(local, global),
-                        code: todo!()
+                        code: todo!(),
                     };
                     dbg!(lang);
                     // return lang;
@@ -617,7 +617,7 @@ mod use_solver {
                 "indirect" => {
                     println!("INDIRECT");
                     //let mut lang = process_lang(lang.clone(), global);
-                    // let mut lang:TwoTransitions<NoSource<Node<'tree>>, NoBuilder<'tree, 'tree, Reference<'tree>>> = 
+                    // let mut lang:TwoTransitions<NoSource<Node<'tree>>, NoBuilder<'tree, 'tree, Reference<'tree>>> =
                     // NoSource {
                     //     content: Reference(lang.clone())
                     // }.solve(&global).unwrap();
@@ -680,7 +680,7 @@ mod use_solver {
                     //TODO : appeler la méthode pour path ?
                     let code = process_code(m.0.captures[0].node.clone(), global);
                     dbg!(&code);
-                    return code
+                    return code;
                 }
                 x => {
                     panic!("{}", x)
@@ -1337,7 +1337,6 @@ mod test {
         }
     }
 
-
     //test process_new_builder function
     #[test]
     fn test_new_builder_function() {
@@ -1351,10 +1350,8 @@ mod test {
         let cst = crate::tree_sitter_utils::into(tree.as_ref(), &file_content);
         let builder = &JavaBuilder::init(cst);
         let tree = tree.as_ref().unwrap();
-        
-        //let result = crate::building::java::use_solver::process_new_builder(todo!(),todo!(to));
 
-        
+        //let result = crate::building::java::use_solver::process_new_builder(todo!(),todo!(to));
     }
 
     //todo

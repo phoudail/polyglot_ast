@@ -84,7 +84,6 @@ impl PolyglotZipper<'_> {
     pub fn goto_parent(&mut self) -> bool {
         self.node.goto_parent()
     }
-
 }
 
 impl PolyglotZipper<'_> {
@@ -92,21 +91,21 @@ impl PolyglotZipper<'_> {
     pub fn is_polyglot_eval_call(&self) -> bool {
         //println!("zipper - passage dans la fonction eval");
         // self.tree.is_polyglot_eval_call(self.node())
-        todo!()
+        false //TODO
     }
 
     /// Returns true if the contained node is a polyglot import call.
     pub fn is_polyglot_import_call(&self) -> bool {
         //println!("zipper - passage dans la fonction import");
         // self.tree.is_polyglot_import_call(self.node())
-        todo!()
+        false //TODO
     }
 
     /// Returns true if the contained node is a polyglot export call.
     pub fn is_polyglot_export_call(&self) -> bool {
         //println!("zipper - passage dans la fonction export");
         // self.tree.is_polyglot_export_call(self.node())
-        todo!()
+        false //TODO
     }
 
     /// Get the contained node's type as a string.
@@ -147,7 +146,6 @@ impl PolyglotZipper<'_> {
         &self.tree.language
     }
 }
-
 
 impl PolyglotZipper<'_> {
     /// Create the zipper for the child at the given index, where zero represents the first child.

@@ -81,6 +81,30 @@ impl ParsingResult {
     }
 }
 
+impl From<crate::RawParseResult> for ParsingResult {
+    fn from(value: crate::RawParseResult) -> Self {
+        let tree = value.cst;
+        let Some(tree) = tree else {
+            return ParsingResult {
+                tree: None,
+                errors: vec![],
+            };
+        };
+
+        let result = PolyglotTree {
+            tree,
+            code: value.source,
+            // working_dir: PathBuf::new(),
+            language: value.language,
+            // node_to_subtrees_map: HashMap::new(),
+        };
+        Self {
+            tree: Some(result),
+            errors: vec![],
+        }
+    }
+}
+
 impl PolyglotTree {
     pub fn parse(code: std::sync::Arc<str>, language: Language) -> ParsingResult {
         let mut parser = Parser::new();
@@ -108,7 +132,7 @@ impl PolyglotTree {
         };
         ParsingResult {
             tree: Some(result),
-            errors: vec![]
+            errors: vec![],
         }
     }
     // /// Given a program's code and a Language, returns a PolyglotTree instance that represents the program.

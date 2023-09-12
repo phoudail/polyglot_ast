@@ -1,6 +1,6 @@
 use crate::{Language, PolyglotTree, SourceFilePath};
 
-mod java;
+pub(crate) mod java;
 // mod javascript;
 // mod javascript;
 // mod python;
@@ -31,7 +31,7 @@ impl PolyglotDef {
     }
 }
 
-enum PolyglotDefOrUse {
+pub(crate) enum PolyglotDefOrUse {
     Def(PolyglotDef),
     Use(PolyglotUse),
 }
@@ -67,7 +67,7 @@ pub trait PolyglotBuilding {
 #[derive(Debug, PartialEq, Eq)]
 pub enum AnaError {}
 
-trait StuffPerLanguage: PolyglotBuilding {
+pub(crate) trait StuffPerLanguage: PolyglotBuilding {
     type UnsolvedUse;
     fn find_polyglot_uses(&self) -> Vec<Self::UnsolvedUse>;
     fn find_polyglot_exports(&self) -> Vec<PolyglotDef>;
@@ -91,10 +91,7 @@ trait StuffPerLanguage: PolyglotBuilding {
         &self,
         node: &Self::Node,
     ) -> Option<Result<Self::UnsolvedUse, AnaError>>;
-    fn try_compute_polyglot_def(
-        &self,
-        node: &Self::Node,
-    ) -> Option<Result<PolyglotDef, AnaError>>;
+    fn try_compute_polyglot_def(&self, node: &Self::Node) -> Option<Result<PolyglotDef, AnaError>>;
 
     // fn is_polyglot_eval_call(&self, node: Node) -> bool {
     //     match self.language {

@@ -8,15 +8,18 @@ struct Handle {
     path: SrcOrPath,
     lang: Language,
 }
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct InternalHandle(usize);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum SrcOrPath {
-    Source(String), // TODO use Arc<str>
+    Source(std::sync::Arc<str>),
     Path(PathBuf),
 }
-
+struct TopoOrder(usize);
 struct GlobalContext {
     pwd: PathBuf,
-    root: Handle,
-    sources: HashMap<Handle, PolyglotTree>, // TODO refactoring into separarted struct with a vec backend and multiple indexes ((path|source)+lang?pwd, usize)
+    root: InternalHandle,
+    sources: Vec<(Handle, PolyglotTree, Vec<(TopoOrder, Handle)>)>, // TODO refactoring into separarted struct with a vec backend and multiple indexes ((path|source)+lang?pwd, usize)
+    queue: Vec<InternalHandle>,
 }

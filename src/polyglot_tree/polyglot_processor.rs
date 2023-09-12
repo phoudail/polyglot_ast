@@ -45,7 +45,7 @@ impl TreePrinter {
         self.result.as_str()
     }
 
-    fn process_impl(&mut self, zip: PolyglotZipper) {
+    pub fn process_impl(&mut self, zip: PolyglotZipper) {
         let mut indent = String::from(" ").repeat(self.indent_level);
 
         let child = zip.child(0);
