@@ -42,7 +42,6 @@ impl PolyglotZipper<'_> {
 
     /// Returns true if the contained node is a polyglot eval call.
     pub fn is_polyglot_eval_call(&self) -> bool {
-        //println!("zipper - passage dans la fonction eval");
         self.tree.is_polyglot_eval_call(self.node())
     }
 
