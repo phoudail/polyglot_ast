@@ -4,18 +4,62 @@ pub(crate) mod java;
 // mod javascript;
 // mod javascript;
 // mod python;
+#[derive(Debug)]
 pub enum PolyglotUse {
-    Eval(PolygloteTreeHandle),
-    Import(PolygloteTreeHandle),
+    EvalSource{
+        language: Language,
+        code: std::sync::Arc<str>,
+    },
+    EvalPath{
+        language: Language,
+        path: SourceFilePath,
+    },
+    Import{
+        // language: Language,
+        // path: SourceFilePath,
+    },
 }
 
+#[derive(Debug)]
 pub struct PolygloteTreeHandle(usize);
 
 impl PolyglotUse {
     pub fn get_kind(&self) -> PolyglotKind {
         match self {
-            PolyglotUse::Eval { .. } => PolyglotKind::Eval,
+            PolyglotUse::EvalSource { .. } => PolyglotKind::Eval,
+            PolyglotUse::EvalPath { .. } => PolyglotKind::Eval,
             PolyglotUse::Import { .. } => PolyglotKind::Import,
+        }
+    }
+}
+
+
+impl crate::PolyStuff for PolyglotUse {
+    fn kind(&self) -> self::PolyglotKind {
+        self.kind()
+    }
+
+    fn lang(&self) -> Language {
+        match self {
+            PolyglotUse::EvalSource { language, .. } => *language,
+            PolyglotUse::EvalPath { language, .. } => *language,
+            PolyglotUse::Import { .. } => todo!(),
+        }
+    }
+
+    fn path(&self) -> Option<&std::path::Path> {
+        match self {
+            PolyglotUse::EvalSource { .. } => None,
+            PolyglotUse::EvalPath { path, .. } => Some(path.as_ref()),
+            PolyglotUse::Import { .. } => todo!(),
+        }
+    }
+
+    fn source(&self) -> Option<&std::sync::Arc<str>> {
+        match self {
+            PolyglotUse::EvalSource { code, .. } => Some(code),
+            PolyglotUse::EvalPath { .. } => None,
+            PolyglotUse::Import { .. } => todo!(),
         }
     }
 }

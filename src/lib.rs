@@ -28,7 +28,7 @@ type FileMap = std::collections::HashMap<std::path::PathBuf, String>;
 
 #[derive(Debug, Clone)]
 pub struct RawParseResult {
-    language: Language,
+    pub(crate) language: Language,
     errors: Vec<String>,
     pub cst: Option<tree_sitter::Tree>,
     source: std::sync::Arc<str>,
@@ -56,9 +56,14 @@ pub fn parse(code: std::sync::Arc<str>, language: Language) -> RawParseResult {
     }
     .into()
 }
-pub trait PolyStuff: std::fmt::Debug {}
+pub trait PolyStuff: std::fmt::Debug {
+    fn kind(&self) -> building::PolyglotKind;
+    fn lang(&self) -> Language;
+    fn path(&self) -> Option<&std::path::Path>;
+    fn source(&self) -> Option<&std::sync::Arc<str>>;
+}
 
-impl<T> PolyStuff for T where T: std::fmt::Debug {}
+// impl<T> PolyStuff for T where T: std::fmt::Debug {}
 pub trait PolyBuilder {
     fn polyglot_stuff(&self) -> Vec<Box<dyn PolyStuff>>;
 }
@@ -89,9 +94,11 @@ impl RawParseResult {
             Language::JavaScript => todo!(),
             Language::Java => {
                 let init = building::java::JavaBuilder::init(cst);
+                let ana = building::java::DefaultRefAna::default();
                 let v = init
                     .find_polyglot_uses()
                     .into_iter()
+                    .map(|u| u.solve(&init,&ana))
                     .map(|u| Box::new(u) as Box<dyn PolyStuff>)
                     .collect();
                 Some(v)

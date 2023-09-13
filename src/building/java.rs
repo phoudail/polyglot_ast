@@ -1,11 +1,13 @@
 use std::fs::File;
 use std::io::Read;
 
-use tree_sitter::Node;
+use tree_sitter::{Node, TextProvider};
 
 use crate::{tree_sitter_utils::TreeSitterCST, util, Language, PolyglotTree};
 
 //use super::EvalSource;
+
+use self::use_solver::ReferenceAnalysis;
 
 use super::{
     AnaError, BuildingContext, PolyglotBuilding, PolyglotDef, PolyglotKind, PolyglotUse,
@@ -36,11 +38,42 @@ impl<Ref> UnSolvedPolyglotUse<Ref> {
         }
     }
 }
+impl<'tree> UnSolvedPolyglotUse<use_solver::Node<'tree>> {
+    pub(crate) fn solve<'a>(
+        &self,
+        // p: &impl crate::tree_sitter_utils::TextProvider<'a, I = &'a str, N<'tree> = use_solver::Node<'tree>>,
+        p: &JavaBuilder<'tree, 'a>,
+        ana: &impl ReferenceAnalysis,
+    ) -> PolyglotUse {
+        match self {
+            UnSolvedPolyglotUse::EvalInline { inline, lang } => {
+                if inline.kind() == "string_litral" {
+                    use crate::tree_sitter_utils::TextProvider;
+                    PolyglotUse::EvalSource {
+                        code: p.text(inline).into(),
+                        language: *lang,
+                    }
+                } else {
+                    todo!()
+                }
+            }
+            _ => todo!(),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct JavaBuilder<'tree, 'text> {
     payload: TreeSitterCST<'tree, 'text>,
     // temporary stuff
+}
+
+impl<'tree, 'text> crate::tree_sitter_utils::TextProvider<'text> for &JavaBuilder<'tree, 'text> {
+    type I = &'text str;
+    type N<'t> = tree_sitter::Node<'t>;
+    fn text(&self, node: &Self::N<'_>) -> Self::I {
+        self.node_to_code(node)
+    }
 }
 impl<'tree, 'text> super::PolyglotBuilding for JavaBuilder<'tree, 'text> {
     type Node = tree_sitter::Node<'tree>;
@@ -479,8 +512,10 @@ impl<'tree, 'text> JavaBuilder<'tree, 'text> {
     }
 }
 
+pub(crate) use use_solver::DefaultRefAna;
+
 mod use_solver {
-    use std::path::PathBuf;
+    use std::{marker::PhantomData, path::PathBuf};
 
     use crate::{tree_sitter_utils::TreeSitterCST, util, Language};
     #[derive(Debug, PartialEq, Eq)]
@@ -816,6 +851,15 @@ mod use_solver {
     pub trait ReferenceAnalysis {
         type Reff;
         fn solve<'tree>(&'tree self, reference: &Self::Reff) -> Result<Node<'tree>, SolvingError>;
+    }
+
+    #[derive(Default)]
+    pub(crate) struct DefaultRefAna<'tree>(PhantomData<&'tree ()>);
+    impl<'tree> ReferenceAnalysis for DefaultRefAna<'tree> {
+        type Reff = Reference<'tree>;
+        fn solve(&self, reff: &Reference<'_>) -> Result<Node<'tree>, SolvingError> {
+            todo!()
+        }
     }
     impl<'tree, C> PolygloteSource<Reference<'tree>, C> {
         fn solve(

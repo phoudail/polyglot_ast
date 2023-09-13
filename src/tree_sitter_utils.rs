@@ -1,7 +1,7 @@
-trait TextProvider<'text> {
-    type I: Iterator<Item = &'text [u8]> + 'text;
+pub(crate) trait TextProvider<'text> {
+    type I;
     type N<'t>;
-    fn text(&mut self, node: &Self::N<'_>) -> Self::I;
+    fn text(&self, node: &Self::N<'_>) -> Self::I;
 }
 
 #[derive(Debug)]
@@ -28,7 +28,7 @@ impl<'tree, 'text> tree_sitter::TextProvider<'text> for &TreeSitterCST<'tree, 't
 impl<'tree, 'text> TextProvider<'text> for &TreeSitterCST<'tree, 'text> {
     type I = <Self as tree_sitter::TextProvider<'text>>::I;
     type N<'t> = tree_sitter::Node<'t>;
-    fn text(&mut self, node: &Self::N<'_>) -> Self::I {
+    fn text(&self, node: &Self::N<'_>) -> Self::I {
         std::iter::once(self.node_to_code(node).as_bytes())
     }
 }
@@ -69,7 +69,7 @@ impl<'text> tree_sitter::TextProvider<'text> for &'text TreeSitterCstArcStr {
 impl<'text> TextProvider<'text> for &'text TreeSitterCstArcStr {
     type I = <Self as tree_sitter::TextProvider<'text>>::I;
     type N<'t> = tree_sitter::Node<'t>;
-    fn text(&mut self, node: &Self::N<'_>) -> Self::I {
+    fn text(&self, node: &Self::N<'_>) -> Self::I {
         std::iter::once(self.node_to_code(node).as_bytes())
     }
 }
