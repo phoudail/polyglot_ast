@@ -22,5 +22,11 @@ fn js_test_file() {
 #[test]
 fn java_test() {
     let file = PathBuf::from("TestSamples/JavaTest.java");
-    PolyglotTree::from_path(file, util::Language::Java);
+    let expected = PathBuf::from("TestSamples/JavaTest_expected.txt");
+    let tree = PolyglotTree::from_path(file, util::Language::Java).expect("AST creation failed for test file TestSamples/JavaTest_expected.txt");
+    let expected = std::fs::read_to_string(expected).expect("Missing test file TestSamples/JavaTest_expected.txt");
+    let mut tp = TreePrinter::new();
+    tree.apply(&mut tp);
+    let actual = tp.get_result();
+    assert_eq!(expected, actual);
 }
