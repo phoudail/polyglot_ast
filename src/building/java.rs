@@ -49,9 +49,12 @@ impl<'tree> UnSolvedPolyglotUse<use_solver::Node<'tree>> {
             UnSolvedPolyglotUse::EvalInline { inline, lang } => {
                 if inline.kind() == "string_litral" {
                     use crate::tree_sitter_utils::TextProvider;
-                    PolyglotUse::EvalSource {
-                        code: p.text(inline).into(),
+                    PolyglotUse {
                         language: *lang,
+                        position: inline.id(),
+                        aux : crate::building::Aux::EvalSource {
+                            code: p.text(inline).into(),
+                        }
                     }
                 } else {
                     todo!()

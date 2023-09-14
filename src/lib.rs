@@ -61,6 +61,7 @@ pub trait PolyStuff: std::fmt::Debug {
     fn lang(&self) -> Language;
     fn path(&self) -> Option<&std::path::Path>;
     fn source(&self) -> Option<&std::sync::Arc<str>>;
+    fn position(&self) -> context::TopoOrder;
 }
 
 // impl<T> PolyStuff for T where T: std::fmt::Debug {}
@@ -98,7 +99,7 @@ impl RawParseResult {
                 let v = init
                     .find_polyglot_uses()
                     .into_iter()
-                    .map(|u| u.solve(&init,&ana))
+                    .map(|u| u.solve(&init, &ana))
                     .map(|u| Box::new(u) as Box<dyn PolyStuff>)
                     .collect();
                 Some(v)

@@ -23,6 +23,17 @@ pub struct PolyglotTree {
     // node_to_subtrees_map: HashMap<usize, PolyglotTree>,
 }
 
+impl TryFrom<&crate::RawParseResult> for PolyglotTree {
+    type Error = ();
+    fn try_from(value: &crate::RawParseResult) -> Result<Self, Self::Error> {
+        value.cst.as_ref().map(|tree| Self {
+            tree: tree.clone(),
+            code: value.source.clone(),
+            language: value.language,
+        }).ok_or(())
+    }
+}
+
 struct PolyglotTreeBuilder<'a, 'b, 'ts> {
     tree: &'a PolyglotTree,
     node_tree_map: &'a mut HashMap<usize, PolyglotTree>,

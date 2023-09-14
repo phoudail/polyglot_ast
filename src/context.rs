@@ -17,20 +17,28 @@ impl From<(Language, &Path)> for Handle {
         }
     }
 }
+impl From<(Language, &std::sync::Arc<str>)> for Handle {
+    fn from((lang, source): (Language, &std::sync::Arc<str>)) -> Self {
+        Handle {
+            path: SrcOrPath::Source(source.clone()),
+            lang,
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct InternalHandle(usize); // TODO rename into Handle
+pub struct InternalHandle(pub(crate) usize); // TODO rename into Handle
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SrcOrPath {
     Source(std::sync::Arc<str>),
     Path(PathBuf),
 }
-pub struct TopoOrder(usize);
+pub struct TopoOrder(pub(crate) usize);
 pub struct GlobalContext {
-    pwd: PathBuf,
-    root: InternalHandle,
-    sources: Vec<(Handle, RawParseResult, Vec<(TopoOrder, InternalHandle)>)>, // TODO refactoring into separarted struct with a vec backend and multiple indexes ((path|source)+lang?pwd, usize)
-    queue: Vec<InternalHandle>,
+    pub(crate) pwd: PathBuf,
+    pub(crate) root: InternalHandle,
+    pub(crate) sources: Vec<(Handle, RawParseResult, Vec<(TopoOrder, InternalHandle)>)>, // TODO refactoring into separarted struct with a vec backend and multiple indexes ((path|source)+lang?pwd, usize)
+    pub(crate) queue: Vec<InternalHandle>,
 }
 
 impl GlobalContext {
@@ -54,6 +62,12 @@ impl GlobalContext {
         }
     }
 
+    pub fn root_tree(&self) -> Option<PolyglotTree> {
+        self.sources
+            .get(self.root.0)
+            .and_then(|(_, tree, _)| tree.try_into().ok())
+    }
+
     pub fn get(&self, handle: &Handle) -> Option<&PolyglotTree> {
         // self.sources
         //     .iter()
@@ -67,7 +81,8 @@ impl GlobalContext {
     }
     pub fn add_polyglot_tree(&mut self, handle: Handle, tree: RawParseResult) -> InternalHandle {
         let h = InternalHandle(self.sources.len());
-        self.sources.push((handle.clone(), tree, Default::default()));
+        self.sources
+            .push((handle.clone(), tree, Default::default()));
         self.queue.push(h.clone());
         h
     }

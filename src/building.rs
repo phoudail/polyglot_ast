@@ -5,16 +5,21 @@ pub(crate) mod java;
 // mod javascript;
 // mod python;
 #[derive(Debug)]
-pub enum PolyglotUse {
-    EvalSource{
-        language: Language,
+pub struct PolyglotUse {
+    aux: Aux,
+    language: Language,
+    position: usize,
+}
+
+#[derive(Debug)]
+enum Aux {
+    EvalSource {
         code: std::sync::Arc<str>,
     },
-    EvalPath{
-        language: Language,
+    EvalPath {
         path: SourceFilePath,
     },
-    Import{
+    Import {
         // language: Language,
         // path: SourceFilePath,
     },
@@ -25,14 +30,13 @@ pub struct PolygloteTreeHandle(usize);
 
 impl PolyglotUse {
     pub fn get_kind(&self) -> PolyglotKind {
-        match self {
-            PolyglotUse::EvalSource { .. } => PolyglotKind::Eval,
-            PolyglotUse::EvalPath { .. } => PolyglotKind::Eval,
-            PolyglotUse::Import { .. } => PolyglotKind::Import,
+        match self.aux {
+            Aux::EvalSource { .. } => PolyglotKind::Eval,
+            Aux::EvalPath { .. } => PolyglotKind::Eval,
+            Aux::Import { .. } => PolyglotKind::Import,
         }
     }
 }
-
 
 impl crate::PolyStuff for PolyglotUse {
     fn kind(&self) -> self::PolyglotKind {
@@ -40,27 +44,27 @@ impl crate::PolyStuff for PolyglotUse {
     }
 
     fn lang(&self) -> Language {
-        match self {
-            PolyglotUse::EvalSource { language, .. } => *language,
-            PolyglotUse::EvalPath { language, .. } => *language,
-            PolyglotUse::Import { .. } => todo!(),
-        }
+        self.language
     }
 
     fn path(&self) -> Option<&std::path::Path> {
-        match self {
-            PolyglotUse::EvalSource { .. } => None,
-            PolyglotUse::EvalPath { path, .. } => Some(path.as_ref()),
-            PolyglotUse::Import { .. } => todo!(),
+        match &self.aux {
+            Aux::EvalSource { .. } => None,
+            Aux::EvalPath { path, .. } => Some(path.as_ref()),
+            Aux::Import { .. } => todo!(),
         }
     }
 
     fn source(&self) -> Option<&std::sync::Arc<str>> {
-        match self {
-            PolyglotUse::EvalSource { code, .. } => Some(code),
-            PolyglotUse::EvalPath { .. } => None,
-            PolyglotUse::Import { .. } => todo!(),
+        match &self.aux {
+            Aux::EvalSource { code, .. } => Some(code),
+            Aux::EvalPath { .. } => None,
+            Aux::Import { .. } => todo!(),
         }
+    }
+
+    fn position(&self) -> crate::context::TopoOrder {
+        crate::context::TopoOrder(self.position)
     }
 }
 

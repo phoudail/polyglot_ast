@@ -38,7 +38,7 @@ impl PolyglotZipper<'_> {
         }
     }
 
-    fn node(&self) -> Node {
+    pub(crate) fn node(&self) -> Node {
         self.node.node()
     }
     /// Get the contained node's source code as a string.

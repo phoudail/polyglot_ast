@@ -16,10 +16,10 @@ public class JavaTest {
         Source sourcep = Source.newBuilder("python", f).build();
         try (Context context = Context.create()) {
             context.eval("python", "print('hello')");
-            context.eval(sourcep);
+            // context.eval(sourcep);
             Value bindings = context.getPolyglotBindings();
-            bindings.getMember("test");
+            // bindings.getMember("test");
         }
-        cx2.getPolyglotBindings().getMember("null");
+        // cx2.getPolyglotBindings().getMember("null");
     }
 }
