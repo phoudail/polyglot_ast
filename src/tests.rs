@@ -17,14 +17,12 @@ fn assert_ast_eq(test_file: &str, expected_file: &str, lang: util::Language) {
     assert_eq!(expected, actual);
 }
 
-
 #[test]
 fn python_test() {
     let file_test = "TestSamples/export_x.py";
     let file_expect = "TestSamples/export_x_expected.txt";
 
     assert_ast_eq(file_test, file_expect, util::Language::Python)
-
 }
 
 #[test]
@@ -41,7 +39,6 @@ fn js_test_file() {
     let file_expect = "TestSamples/test_pyprint_expected.txt";
 
     assert_ast_eq(file_test, file_expect, util::Language::JavaScript)
-
 }
 
 #[test]
@@ -50,5 +47,4 @@ fn java_test() {
     let file_expect = "TestSamples/JavaTest_expected.txt";
 
     assert_ast_eq(file_test, file_expect, util::Language::Java)
-
 }
