@@ -20,7 +20,7 @@ fn assert_ast_eq(test_file: &str, expected_file: &str, lang: util::Language) {
 
 #[test]
 fn python_test() {
-    let file_test = "TestSamples/export_x.py";
+    let file_test = "TestSamples/export_x.p";
     let file_expect = "TestSamples/export_x_expected.txt";
 
     assert_ast_eq(file_test, file_expect, util::Language::Python)
