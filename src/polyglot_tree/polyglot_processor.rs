@@ -145,13 +145,10 @@ impl DUBuilder {
             if zip.is_polyglot_export_call() {
                 todo!()
             }
-    
+
             self.process_impl(zip.child(0));
             self.process_impl(zip.next_sibling());
         }
-        
-        
-        
     }
 }
 
