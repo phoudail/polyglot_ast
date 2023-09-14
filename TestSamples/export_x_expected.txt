@@ -1,0 +1,60 @@
+module
+ import_statement
+  import : import
+  dotted_name
+   identifier : polyglot
+  expression_statement
+   assignment
+    identifier : x
+    = : =
+    integer : 42
+   expression_statement
+    polyglot_export_call
+     attribute
+      identifier : polyglot
+      . : .
+      identifier : export_value
+      argument_list
+       ( : (
+       keyword_argument
+        identifier : name
+        = : =
+        string
+         string_start : "
+         string_content : x
+         string_end : "
+        , : ,
+        keyword_argument
+         identifier : value
+         = : =
+         identifier : x
+         ) : )
+    expression_statement
+     polyglot_eval_call
+      module
+       expression_statement
+        assignment
+         identifier : y
+         = : =
+         polyglot_import_call
+          attribute
+           identifier : polyglot
+           . : .
+           identifier : import_value
+           argument_list
+            ( : (
+            keyword_argument
+             identifier : name
+             = : =
+             string
+              string_start : "
+              string_content : x
+              string_end : "
+             ) : )
+        expression_statement
+         call
+          print : print
+          argument_list
+           ( : (
+           identifier : y
+           ) : )

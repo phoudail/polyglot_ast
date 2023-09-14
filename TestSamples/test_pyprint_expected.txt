@@ -1,0 +1,14 @@
+program
+ expression_statement
+  polyglot_eval_call
+   module
+    expression_statement
+     call
+      print : print
+      argument_list
+       ( : (
+       binary_operator
+        integer : 42
+        ** : **
+        integer : 2
+        ) : )
