@@ -1,2 +1,0 @@
-// struct_language.rs
-
