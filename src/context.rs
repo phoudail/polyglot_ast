@@ -34,6 +34,14 @@ pub enum SrcOrPath {
     Path(PathBuf),
 }
 pub struct TopoOrder(pub(crate) usize);
+
+/// TODO short why
+/// 
+/// TODO NOTE: relative to previous way of doing things 
+/// 
+/// TODO short example
+/// 
+/// TODO link to examples/*
 pub struct GlobalContext {
     pub(crate) pwd: PathBuf,
     pub(crate) root: InternalHandle,

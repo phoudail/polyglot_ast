@@ -1,3 +1,19 @@
+//! # Polyglot AST
+//! 
+//! Principle / objectives
+//! - [ ] provide a simple API to parse a polyglot file and get his AST
+//! - [ ] provide a simple API to query the AST
+//! - [ ] provide a simple API to manipulate the AST
+//! 
+//! TODO
+//! - [ ] add a simple example building and using the Polyglote AST
+//! - [ ] add a simple processor that pretty prints the polyglot AST
+//!   
+//! # Getting started
+//! ```rust
+//! use polyglot::prelude::*;
+//! ```
+
 pub mod building;
 pub mod context;
 pub mod graal_utils;
@@ -12,7 +28,24 @@ pub use polyglot_tree::polyglot_processor::{PolygotProcessor, TreePrinter};
 pub use polyglot_tree::polyglot_zipper::PolyglotZipper;
 pub use polyglot_tree::PolyglotTree;
 
-/// An enumeration that represents all languages supported by this crate. Current options are Python, JavaScript and Java.
+/// Default imports to facilitate access to novice users.
+///
+/// ```rust
+/// GlobalContext;
+///
+/// // for each file
+/// //     parse
+///
+/// // query stuff
+/// ```
+/// see also: examples/simple.rs
+///
+/// https://doc.rust-lang.org/reference/names/preludes.html
+pub mod prelude {
+    pub use crate::context::GlobalContext;
+}
+
+/// An enumeration that represents all languages supported by this crate. Current options are Java and partial support for Python and JavaScript.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Language {
     Python,
@@ -64,7 +97,7 @@ pub trait PolyStuff: std::fmt::Debug {
     fn position(&self) -> context::TopoOrder;
 }
 
-// impl<T> PolyStuff for T where T: std::fmt::Debug {}
+// trait not yet used in the code
 pub trait PolyBuilder {
     fn polyglot_stuff(&self) -> Vec<Box<dyn PolyStuff>>;
 }

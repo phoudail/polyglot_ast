@@ -52,9 +52,9 @@ impl<'tree> UnSolvedPolyglotUse<use_solver::Node<'tree>> {
                     PolyglotUse {
                         language: *lang,
                         position: inline.id(),
-                        aux : crate::building::Aux::EvalSource {
+                        aux: crate::building::Aux::EvalSource {
                             code: p.text(inline).into(),
-                        }
+                        },
                     }
                 } else {
                     todo!()
@@ -73,8 +73,12 @@ pub(crate) struct JavaBuilder<'tree, 'text> {
 
 impl<'tree, 'text> crate::tree_sitter_utils::TextProvider<'text> for &JavaBuilder<'tree, 'text> {
     type I = &'text str;
+    type II = str;
     type N<'t> = tree_sitter::Node<'t>;
-    fn text(&self, node: &Self::N<'_>) -> Self::I {
+    fn text(&'text self, node: &Self::N<'_>) -> Self::I {
+        self.node_to_code(node)
+    }
+    fn t(&self, node: &Self::N<'_>) -> &Self::II {
         self.node_to_code(node)
     }
 }

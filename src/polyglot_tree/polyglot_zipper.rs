@@ -1,5 +1,6 @@
 use tree_sitter::{Node, TreeCursor};
 
+use crate::tree_sitter_utils::TextProvider;
 use crate::Language;
 
 use super::util::InvalidArgumentError;
@@ -14,8 +15,8 @@ pub struct Test {
     n: u32,
 }
 
-pub struct PolyglotZipper<'a> {
-    tree: &'a PolyglotTree,
+pub struct PolyglotZipper<'a, T: TextProvider<'a> = PolyglotTree> {
+    tree: &'a T,
     node: TreeCursor<'a>,
 }
 
@@ -25,13 +26,19 @@ impl std::fmt::Debug for PolyglotZipper<'_> {
     }
 }
 
-impl PolyglotZipper<'_> {
+impl<'a> PolyglotZipper<'a, PolyglotTree> {
     /// Returns a new zipper for the given tree, located at the root.
-    pub fn new(tree: &'_ PolyglotTree) -> PolyglotZipper<'_> {
+    pub fn new(tree: &'a PolyglotTree) -> Self {
         Self::with_node(tree, tree.root_node())
     }
+    /// Get the contained node's source code as a string.
+    pub fn code(&self) -> &str {
+        self.tree.t(&self.node())
+    }
+}
 
-    fn with_node<'a>(tree: &'a PolyglotTree, node: Node<'a>) -> PolyglotZipper<'a> {
+impl<'a, T: 'a + TextProvider<'a, I = &'a str, II = str>> PolyglotZipper<'a, T> {
+    fn with_node(tree: &'a T, node: Node<'a>) -> Self {
         PolyglotZipper {
             tree,
             node: node.walk(),
@@ -40,10 +47,6 @@ impl PolyglotZipper<'_> {
 
     pub(crate) fn node(&self) -> Node {
         self.node.node()
-    }
-    /// Get the contained node's source code as a string.
-    pub fn code(&self) -> &str {
-        self.tree.node_to_code(self.node())
     }
 
     /// Get the contained node's start position in terms of rows and columns.
@@ -137,7 +140,21 @@ impl PolyglotZipper<'_> {
     }
 
     fn get_python_binding(&self) -> Option<String> {
-        Some(String::from(self.child(1)?.child(1)?.code()))
+        // Some(String::from(self.child(1)?.child(1)?.code()))
+        let mut c = self.node.clone();
+        if !c.goto_first_child() {
+            return None;
+        }
+        if !c.goto_next_sibling() {
+            return None;
+        }
+        if !c.goto_first_child() {
+            return None;
+        }
+        if !c.goto_next_sibling() {
+            return None;
+        }
+        Some(self.tree.t(&c.node()).into())
     }
 
     /// Get the Language associated with the contained node.
@@ -147,9 +164,9 @@ impl PolyglotZipper<'_> {
     }
 }
 
-impl PolyglotZipper<'_> {
+impl<'a, T: 'a + TextProvider<'a, I = &'a str, II = str>> PolyglotZipper<'a, T> {
     /// Create the zipper for the child at the given index, where zero represents the first child.
-    pub fn child(&self, i: usize) -> Option<PolyglotZipper> {
+    pub fn child(&self, i: usize) -> Option<Self> {
         // if self.is_polyglot_eval_call() {
         //     // if we are an eval call, we actually want to jump to the corresponding subtree
         //     let my_id = self.node().id();
@@ -157,16 +174,32 @@ impl PolyglotZipper<'_> {
         //     return Some(Self::new(subtree));
         // }
 
-        Some(Self::with_node(self.tree, self.node.node().child(i)?))
+        if i == 0 {
+            self.first_child()
+        } else {
+            self.node
+                .node()
+                .child(i)
+                .map(|x| Self::with_node(self.tree, x))
+        }
+
+        // Some(Self::with_node(self.tree, self.node.node().child(i)?))
+    }
+    pub fn first_child(&self) -> Option<Self> {
+        let mut cursor = self.node.clone();
+        cursor.goto_first_child().then_some(PolyglotZipper {
+            tree: self.tree,
+            node: cursor,
+        })
     }
 
     /// Create the zipper for the next sibling node.
-    pub fn next_sibling(&self) -> Option<PolyglotZipper> {
-        Some(Self::with_node(self.tree, self.node().next_sibling()?))
+    pub fn next_sibling(&self) -> Option<Self> {
+        Some(Self::with_node(self.tree, self.node.node().next_sibling()?))
     }
 
     /// Create the zipper for the previous sibling node.
-    pub fn prev_sibling(&self) -> Option<PolyglotZipper> {
-        Some(Self::with_node(self.tree, self.node().prev_sibling()?))
+    pub fn prev_sibling(&'a self) -> Option<Self> {
+        Some(Self::with_node(self.tree, self.node.node().prev_sibling()?))
     }
 }

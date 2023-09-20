@@ -1,7 +1,9 @@
-pub(crate) trait TextProvider<'text> {
+pub trait TextProvider<'text> {
     type I;
-    type N<'t>;
-    fn text(&self, node: &Self::N<'_>) -> Self::I;
+    type II: ?Sized;
+    type N<'n>;
+    fn text(&'text self, node: &Self::N<'_>) -> Self::I;
+    fn t<'t>(&'t self, node: &Self::N<'_>) -> &'t Self::II;
 }
 
 #[derive(Debug)]
@@ -27,9 +29,13 @@ impl<'tree, 'text> tree_sitter::TextProvider<'text> for &TreeSitterCST<'tree, 't
 
 impl<'tree, 'text> TextProvider<'text> for &TreeSitterCST<'tree, 'text> {
     type I = <Self as tree_sitter::TextProvider<'text>>::I;
+    type II = str;
     type N<'t> = tree_sitter::Node<'t>;
-    fn text(&self, node: &Self::N<'_>) -> Self::I {
+    fn text(&'text self, node: &Self::N<'_>) -> Self::I {
         std::iter::once(self.node_to_code(node).as_bytes())
+    }
+    fn t(&self, node: &Self::N<'_>) -> &Self::II {
+        &self.source[node.byte_range()]
     }
 }
 
@@ -68,9 +74,13 @@ impl<'text> tree_sitter::TextProvider<'text> for &'text TreeSitterCstArcStr {
 
 impl<'text> TextProvider<'text> for &'text TreeSitterCstArcStr {
     type I = <Self as tree_sitter::TextProvider<'text>>::I;
+    type II = str;
     type N<'t> = tree_sitter::Node<'t>;
     fn text(&self, node: &Self::N<'_>) -> Self::I {
         std::iter::once(self.node_to_code(node).as_bytes())
+    }
+    fn t(&self, node: &Self::N<'_>) -> &str {
+        &self.source[node.byte_range()]
     }
 }
 

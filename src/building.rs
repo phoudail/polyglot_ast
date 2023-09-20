@@ -13,12 +13,19 @@ pub struct PolyglotUse {
 
 #[derive(Debug)]
 enum Aux {
+    // For example: eval(source1)
     EvalSource {
         code: std::sync::Arc<str>,
     },
+
+    // For example: eval(Source.newBuilder("python", file2).build());
+    // where file2 is a path to a file containing python code
     EvalPath {
         path: SourceFilePath,
     },
+
+    // For example: import polyglot
+    // it often symbolizes the beginning of a polyglot block
     Import {
         // language: Language,
         // path: SourceFilePath,
@@ -29,6 +36,7 @@ enum Aux {
 pub struct PolygloteTreeHandle(usize);
 
 impl PolyglotUse {
+    /// Returns the kind of the polyglot use
     pub fn get_kind(&self) -> PolyglotKind {
         match self.aux {
             Aux::EvalSource { .. } => PolyglotKind::Eval,
@@ -39,14 +47,18 @@ impl PolyglotUse {
 }
 
 impl crate::PolyStuff for PolyglotUse {
+    // Returns the kind of the polyglot use
     fn kind(&self) -> self::PolyglotKind {
         self.kind()
     }
 
+    // Returns the language of the polyglot use
     fn lang(&self) -> Language {
         self.language
     }
 
+    // Returns the path of the polyglot use
+    // useful only for EvalPath polyglot uses
     fn path(&self) -> Option<&std::path::Path> {
         match &self.aux {
             Aux::EvalSource { .. } => None,
@@ -55,6 +67,8 @@ impl crate::PolyStuff for PolyglotUse {
         }
     }
 
+    // Returns the source of the polyglot use
+    // useful only for EvalSource polyglot uses
     fn source(&self) -> Option<&std::sync::Arc<str>> {
         match &self.aux {
             Aux::EvalSource { code, .. } => Some(code),
@@ -63,15 +77,18 @@ impl crate::PolyStuff for PolyglotUse {
         }
     }
 
+    // Returns the position of the polyglot use
     fn position(&self) -> crate::context::TopoOrder {
         crate::context::TopoOrder(self.position)
     }
 }
 
+// Enum that represents a polyglot definition
 pub enum PolyglotDef {
     ExportValue { name: String, value: String },
 }
 impl PolyglotDef {
+    // Returns the kind of the polyglot definition
     pub fn get_kind(&self) -> PolyglotKind {
         match self {
             PolyglotDef::ExportValue { .. } => PolyglotKind::Export,
@@ -79,12 +96,14 @@ impl PolyglotDef {
     }
 }
 
+// Enum that represents a polyglot definition or use
 pub(crate) enum PolyglotDefOrUse {
     Def(PolyglotDef),
     Use(PolyglotUse),
 }
 
 impl PolyglotDefOrUse {
+    // Returns the kind of the polyglot definition or use
     pub fn get_kind(&self) -> PolyglotKind {
         match self {
             PolyglotDefOrUse::Def(def) => def.get_kind(),
@@ -99,12 +118,14 @@ impl From<PolyglotUse> for PolyglotDefOrUse {
     }
 }
 
+// 3 main kinds of polyglot elements
 pub enum PolyglotKind {
     Eval,
     Import,
     Export,
 }
 
+// 
 pub trait PolyglotBuilding {
     type Node;
     type Ctx;
@@ -115,6 +136,9 @@ pub trait PolyglotBuilding {
 #[derive(Debug, PartialEq, Eq)]
 pub enum AnaError {}
 
+// Main trait for polyglot building
+// it is implemented for each language
+// each new language must implement this trait with this 5 methods
 pub(crate) trait StuffPerLanguage: PolyglotBuilding {
     type UnsolvedUse;
     fn find_polyglot_uses(&self) -> Vec<Self::UnsolvedUse>;
@@ -141,47 +165,9 @@ pub(crate) trait StuffPerLanguage: PolyglotBuilding {
     ) -> Option<Result<Self::UnsolvedUse, AnaError>>;
     fn try_compute_polyglot_def(&self, node: &Self::Node) -> Option<Result<PolyglotDef, AnaError>>;
 
-    // fn is_polyglot_eval_call(&self, node: Node) -> bool {
-    //     match self.language {
-    //         Language::Python => {
-    //             matches!(self.get_polyglot_call_python(node), Some("polyglot.eval"))
-    //         }
-    //         Language::JavaScript => matches!(
-    //             self.get_polyglot_call_js(node),
-    //             Some("Polyglot.eval") | Some("Polyglot.evalFile")
-    //         ),
-    //         Language::Java => matches!(self.get_polyglot_call_java(node), Some("eval")),
-    //     }
-    // }
-
-    // fn is_polyglot_import_call(&self, node: Node) -> bool {
-    //     match self.language {
-    //         Language::Python => matches!(
-    //             self.get_polyglot_call_python(node),
-    //             Some("polyglot.import_value")
-    //         ),
-    //         Language::JavaScript => {
-    //             matches!(self.get_polyglot_call_js(node), Some("Polyglot.import"))
-    //         }
-    //         Language::Java => matches!(self.get_polyglot_call_java(node), Some("getMember")),
-    //     }
-    // }
-
-    // fn is_polyglot_export_call(&self, node: Node) -> bool {
-    //     match self.language {
-    //         Language::Python => matches!(
-    //             self.get_polyglot_call_python(node),
-    //             Some("polyglot.export_value")
-    //         ),
-    //         Language::JavaScript => {
-    //             matches!(self.get_polyglot_call_js(node), Some("Polyglot.export"))
-    //         }
-    //         Language::Java => matches!(self.get_polyglot_call_java(node), Some("putMember")),
-    //     }
-    // }
 }
 
-/// take inpiration from grall_utils.rs
+/// take inpiration from graal_utils.rs
 struct BuildingContext {
     pwd: std::path::PathBuf,
     map_source: crate::SourceMap,

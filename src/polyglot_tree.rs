@@ -1,3 +1,9 @@
+//!
+//!
+//!
+//!
+//!
+
 use crate::Language;
 
 use super::util;
@@ -23,14 +29,42 @@ pub struct PolyglotTree {
     // node_to_subtrees_map: HashMap<usize, PolyglotTree>,
 }
 
+impl<'text> crate::tree_sitter_utils::TextProvider<'text> for PolyglotTree {
+    type I = &'text str;
+    type II = str;
+    type N<'t> = tree_sitter::Node<'t>;
+    fn text(&'text self, node: &Self::N<'_>) -> Self::I {
+        &self.code[node.start_byte()..node.end_byte()]
+    }
+    fn t(&self, node: &Self::N<'_>) -> &Self::II {
+        &self.code[node.byte_range()]
+    }
+}
+
+impl<'text> crate::tree_sitter_utils::TextProvider<'text> for &'text PolyglotTree {
+    type I = &'text str;
+    type II = str;
+    type N<'t> = tree_sitter::Node<'t>;
+    fn text(&self, node: &Self::N<'_>) -> Self::I {
+        &self.code[node.start_byte()..node.end_byte()]
+    }
+    fn t(&self, node: &Self::N<'_>) -> &Self::II {
+        &self.code[node.byte_range()]
+    }
+}
+
 impl TryFrom<&crate::RawParseResult> for PolyglotTree {
     type Error = ();
     fn try_from(value: &crate::RawParseResult) -> Result<Self, Self::Error> {
-        value.cst.as_ref().map(|tree| Self {
-            tree: tree.clone(),
-            code: value.source.clone(),
-            language: value.language,
-        }).ok_or(())
+        value
+            .cst
+            .as_ref()
+            .map(|tree| Self {
+                tree: tree.clone(),
+                code: value.source.clone(),
+                language: value.language,
+            })
+            .ok_or(())
     }
 }
 
@@ -146,87 +180,6 @@ impl PolyglotTree {
             errors: vec![],
         }
     }
-    // /// Given a program's code and a Language, returns a PolyglotTree instance that represents the program.
-    // ///
-    // /// The provided AST is built recursively from variations of the `polyglot.eval` function call in different languages, and can be traversed across language boundaries.
-    // ///
-    // /// Returns None if there was a problem during the parsing phase, which can happen either due to timeout or messing with the parser's cancellation flags.
-    // /// If you are not using tree-sitter in your program, you can safely assume this method will never return None;
-    // /// refer to the `tree_sitter::Parser::parse()` documentation for more information.
-    // ///
-    // /// # Arguments
-    // ///
-    // /// - `code` The code snippet to build the AST from, provided as any object that can be converted to a string.
-    // /// For proper use, ensure that `code.to_string()` would provide a syntactically correct code snippet.
-    // /// - `language` The Language variant that `code` is written in.
-    // ///
-    // /// # Examples
-    // ///
-    // /// ```
-    // /// use polyglot_ast::PolyglotTree;
-    // /// use polyglot_ast::util::Language;
-    // ///
-    // /// let empty_tree: PolyglotTree = PolyglotTree::from("", Language::Python).expect("Python is a supported language");
-    // /// let tree: PolyglotTree = PolyglotTree::from("print(x*42)", Language::Python).expect("Python is a supported language");
-    // /// let py_js_tree: PolyglotTree = PolyglotTree::from("import polyglot\nprint(x*42)\npolyglot.eval(language=\"js\", string=\"console.log(42)\"", Language::Python).expect("Python is a supported language");
-    // /// ```
-    // ///
-    // /// # Panics
-    // ///
-    // /// This method can only panic if there is a problem while loading the language grammar into the parser, either in this call or subsequent recursive calls to build subtrees.
-    // /// This can only happen if tree_sitter and the grammars are of incompatible versions;
-    // /// either refer to the `tree_sitter::Parser::set_language()` documentation or directly contact polyglot_ast maintainers if this method keeps panicking.
-    // pub fn from(code: impl ToString, language: Language) -> ParsingResult {
-    //     let code = code.to_string();
-
-    //     let mut parser = Parser::new();
-    //     let ts_lang = util::language_enum_to_treesitter(&language);
-
-    //     parser
-    //         .set_language(ts_lang)
-    //         .expect("Error loading the language grammar into the parser; if this error persists, consider reporting it to the library maintainers.");
-
-    //     let tree = parser.parse(code.as_str(), None);
-
-    //     let Some(tree) = tree else {
-    //         return ParsingResult {
-    //             tree: None,
-    //             errors: std::sync::Arc::new(vec![]),
-    //         };
-    //     };
-
-    //     let mut result = PolyglotTree {
-    //         tree,
-    //         code,
-    //         working_dir: PathBuf::new(),
-    //         language,
-    //         node_to_subtrees_map: HashMap::new(),
-    //     };
-
-    //     let tree = Tree { /* initialisation de Tree */ };
-    //     let code = "some_code".to_string();
-    //     let working_dir = PathBuf::from("/path/to/working/directory");
-    //     let language = Language::Rust; // Remplacez par le langage approprié
-    //     let node_to_subtrees_map = HashMap::new();
-
-    //     let polyglot_tree = PolyglotTree::new();
-    //     let mut node_tree_map = HashMap::new();
-    //     let mut map_source = SourceMap::new();
-    //     let mut map_file = FileMap::new();
-    //     let mut params = PolyglotTreeBuilder::new(
-    //         &polyglot_tree,
-    //         &mut node_tree_map,
-    //         &mut map_source,
-    //         &mut map_file,
-    //     );
-
-    //     result.build_polyglot_tree(params);
-    //     result.node_to_subtrees_map = node_tree_map; // set the map after its built
-    //     ParsingResult {
-    //         tree: Some(result),
-    //         errors: std::sync::Arc::new(vec![]),
-    //     }
-    // }
 
     /// Given a path to a file and a Language, returns a PolyglotTree instance that represents the program written in the file.
     ///
@@ -266,94 +219,12 @@ impl PolyglotTree {
     /// either refer to the `tree_sitter::Parser::set_language()` documentation or directly contact polyglot_ast maintainers if this method keeps panicking.
     pub fn from_path(path: PathBuf, language: Language) -> Option<PolyglotTree> {
         todo!()
-        // let file = path.clone();
-        // let code = match std::fs::read_to_string(path) {
-        //     Ok(s) => s,
-        //     Err(e) => {
-        //         eprintln!(
-        //             "Warning: unable to create tree for file {} due to the following error: {e}",
-        //             file.to_str()?
-        //         );
-        //         return None;
-        //     }
-        // };
-
-        // let mut parser = Parser::new();
-        // let ts_lang = util::language_enum_to_treesitter(&language);
-
-        // parser
-        //     .set_language(ts_lang)
-        //     .expect("Error loading the language grammar into the parser; consider verifying your versions of the grammar and tree-sitter are compatible.");
-
-        // let tree = parser.parse(code.as_str(), None)?;
-
-        // let mut result = PolyglotTree {
-        //     tree,
-        //     code,
-        //     working_dir: file.parent()?.to_path_buf(),
-        //     language,
-        //     node_to_subtrees_map: HashMap::new(),
-        // };
-
-        // let mut map = HashMap::new();
-        // let mut map_source: SourceMap = HashMap::new();
-        // let mut map_file = HashMap::new();
-        // result.build_polyglot_tree(&mut map, &mut map_source, &mut map_file);
-        // result.node_to_subtrees_map = map;
-
-        // Some(result)
     }
-
-    // /// Internal function to build a polyglot tree, which sets a specific working directory for the built subtree.
-    // /// This is used when a polyglot file has a polyglot call to raw code, to ensure any subsequent calls would properly locate files.
-    // ///
-    // /// # Arguments
-    // ///
-    // /// - `code` The code snippet to build the AST from, provided as any object that can be converted to a string.
-    // /// For proper use, ensure that `code.to_string()` would provide a syntactically correct code snippet.
-    // /// - `language` The Language variant that the file at `path` is written in.
-    // /// - `working_dir` a PathBuf of the parent directory of the file currently being processed.
-    // ///
-    // /// # Panics
-    // ///
-    // /// This method can only panic if there is a problem while loading the language grammar into the parser,
-    // /// either in this call or subsequent recursive calls to build subtrees.
-    // /// This can only happen if tree_sitter and the grammars are of incompatible versions;
-    // /// either refer to the `tree_sitter::Parser::set_language()` documentation or directly contact polyglot_ast maintainers if this method keeps panicking.
-    // fn from_directory(
-    //     code: impl ToString,
-    //     language: Language,
-    //     working_dir: PathBuf,
-    // ) -> Option<PolyglotTree> {
-    //     let code = code.to_string();
-
-    //     let mut parser = Parser::new();
-    //     let ts_lang = util::language_enum_to_treesitter(&language);
-
-    //     parser
-    //         .set_language(ts_lang)
-    //         .expect("Error loading the language grammar into the parser; consider verifying your versions of the grammar and tree-sitter are compatible.");
-
-    //     let tree = parser.parse(code.as_str(), None)?;
-
-    //     let mut result = PolyglotTree {
-    //         tree,
-    //         code,
-    //         working_dir,
-    //         language,
-    //         node_to_subtrees_map: HashMap::new(),
-    //     };
-
-    //     //let mut params
-    //     result.build_polyglot_tree(params);
-    //     result.node_to_subtrees_map = params.map;
-    //     Some(result)
-    // }
 
     /// Applies the given processor to the tree, starting from the root of the tree.
     /// For more information, refer to the PolyglotProcessor trait documentation.
     pub fn apply(&self, processor: &mut impl polyglot_processor::PolygotProcessor) {
-        processor.process(polyglot_zipper::PolyglotZipper::new(self))
+        processor.process(polyglot_zipper::PolyglotZipper::<PolyglotTree>::new(self))
     }
 
     /// Internal function to get a node's source code.
@@ -365,121 +236,6 @@ impl PolyglotTree {
     fn root_node(&self) -> Node {
         self.tree.root_node()
     }
-
-    // /// Internal function to start building the polyglot mappings and subtrees.
-    // fn build_polyglot_tree(&self, params: PolyglotTreeBuilder) -> Result<(), LinkError> {
-    //     let root = self.tree.root_node();
-    //     //self.build_polyglot_links(node_tree_map, root, map_source, map_file)?; // we get the root, and then call the recursive function
-    //     self.build_polyglot_links(params);
-    //     Ok(())
-    // }
-
-    // /// Internal recursive function that iterates over the nodes in the tree, and builds all subtrees as well as the polyglot link map.
-    // fn build_polyglot_links(&self, params: PolyglotTreeBuilder) -> Result<(), LinkError> {
-    //     // TODO first
-
-    //     let mut stack = vec![self.root_node()];
-
-    //     while let Some(node) = stack.pop() {
-    //         if node.kind() == "local_variable_declaration" {
-    //             // TODO extract function
-    //             for i in 0..node.named_child_count() {
-    //                 if self.node_to_code(node.child(i).unwrap()) == "Source" {
-    //                     //pair contains (language, file)
-    //                     let pair = node
-    //                         .child(1)
-    //                         .and_then(|n| n.child(2))
-    //                         .and_then(|n| n.child(0))
-    //                         .and_then(|n| n.child(3))
-    //                         .ok_or(LinkError::ParametersMissing)?;
-    //                     let source = self
-    //                         .node_to_code(node.child(1).unwrap().child(0).unwrap())
-    //                         .to_string();
-    //                     let lang =
-    //                         self.node_to_code(pair.child(1).ok_or(LinkError::LanguageMissing)?);
-    //                     let lang = util::strip_quotes(lang);
-    //                     let language = util::language_string_to_enum(&lang)
-    //                         .map_err(|_| LinkError::LanguageNotHandled(lang))?;
-    //                     let file = self
-    //                         .node_to_code(pair.child(3).ok_or(LinkError::CodeMissing)?)
-    //                         .to_string();
-    //                     //insert (source_variable, (language, file))
-    //                     params.map_source.insert(source, (language, file));
-    //                 }
-    //                 if self.node_to_code(node.child(i).unwrap()) == "File" {
-    //                     let file = self
-    //                         .node_to_code(
-    //                             node.child(1)
-    //                                 .and_then(|n| n.child(0))
-    //                                 .ok_or(LinkError::FileMissing)?,
-    //                         )
-    //                         .to_string();
-
-    //                     let path: &str = self.node_to_code(
-    //                         node.child(1)
-    //                             .and_then(|n| n.child(2))
-    //                             .and_then(|n| n.child(2))
-    //                             .and_then(|n| n.child(1))
-    //                             .ok_or(LinkError::PathMissing)?,
-    //                     );
-
-    //                     let path = util::strip_quotes(path);
-    //                     //insert (file_variable, path of the file)
-    //                     params.map_file.insert(file, path);
-    //                 }
-    //             }
-    //         }
-    //         if self.is_polyglot_eval_call(node) {
-    //             if !self.make_subtree(
-    //                 params.node_tree_map,
-    //                 params.map_source,
-    //                 params.map_file,
-    //                 self.root_node(),
-    //             ) {
-    //                 // If building the subtree failed,
-    //                 // we want to soft fail (eg. not panic) to avoid interrupting the tree building.
-    //                 // Eventually, this should be made into a proper Error,
-    //                 // but for now for debugging purposes it just prints a warning.
-    //                 eprintln!(
-    //                     "Warning: unable to make subtree for polyglot call at position {}",
-    //                     node.start_position()
-    //                 )
-    //             }
-    //         } else {
-    //             if let Some(child) = node.child(0) {
-    //                 stack.push(child);
-    //             }
-    //             if let Some(sibling) = node.next_sibling() {
-    //                 stack.push(sibling);
-    //             }
-    //         }
-    //     }
-    //     Ok(())
-    // }
-    // fn make_subtree(
-    //     &self,
-    //     node_tree_map: &mut HashMap<usize, PolyglotTree>,
-    //     map_source: &mut SourceMap,
-    //     map_file: &mut FileMap,
-    //     node: Node,
-    // ) -> bool {
-    //     let subtree: PolyglotTree;
-    //     let result: Option<PolyglotTree> = match self.language {
-    //         // delegate to language specific subfunction
-    //         Language::Python => self.make_subtree_python(&node),
-    //         Language::JavaScript => self.make_subtree_js(&node),
-    //         Language::Java => self.make_subtree_java(&node, map_source, map_file),
-    //     };
-
-    //     subtree = match result {
-    //         Some(t) => t,
-    //         None => return false,
-    //     };
-
-    //     node_tree_map.insert(node.id(), subtree);
-
-    //     true // signal everything went right
-    // }
 }
 
 enum LinkError {

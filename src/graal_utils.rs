@@ -6,9 +6,6 @@
 // NOTE GraalVM exposes fewer polyglote features to other languages, using https://github.com/oracle/graal/blob/master/sulong/projects/com.oracle.truffle.llvm.libraries.graalvm.llvm/include/graalvm/llvm/polyglot.h
 // for example no Context.parse()
 
-
-
-
 // import java.io.InputStream;
 // import java.io.OutputStream;
 // import java.nio.file.Path;
@@ -43,7 +40,7 @@
 use std::hash::Hash;
 
 type AbstractEngineDispatch = ();
-struct Engine{
+struct Engine {
     dispatch: AbstractEngineDispatch,
     receiver: Object,
     current_api: Option<Box<Engine>>,
@@ -51,13 +48,14 @@ struct Engine{
 type Map<K, V> = std::collections::HashMap<K, V>;
 type OutputStream = ();
 type InputStream = ();
-type Predicate<T> = Box<dyn Fn(&T)->bool>;
+type Predicate<T> = Box<dyn Fn(&T) -> bool>;
 type PolyglotAccess = ();
 type HostAccess = ();
 type IOAccess = ();
 type FileSystem = ();
 type MessageTransport = ();
-type Object = ();
+#[derive(PartialEq, Hash)]
+struct Object();
 type Boolean = ();
 type ProcessHandler = ();
 type EnvironmentAccess = ();
@@ -112,9 +110,8 @@ struct Builder {
 // static UNSET_HOST_LOOKUP: Box<dyn Fn(&str)->bool> = Box::new(|s:&str| false);
 
 impl Builder {
-
     fn new() -> Self {
-        Self { 
+        Self {
             sharedEngine: todo!(),
             permittedLanguages: todo!(),
             out: todo!(),
@@ -122,7 +119,7 @@ impl Builder {
             _in: todo!(),
             options: todo!(),
             arguments: todo!(),
-            hostClassFilter: Box::new(|s:&str| false),
+            hostClassFilter: Box::new(|s: &str| false),
             allowNativeAccess: todo!(),
             allowCreateThread: todo!(),
             allowAllAccess: todo!(),
@@ -147,7 +144,7 @@ impl Builder {
             currentWorkingDirectory: todo!(),
             hostClassLoader: todo!(),
             useSystemExit: todo!(),
-            sandboxPolicy: todo!() 
+            sandboxPolicy: todo!(),
         }
     }
 
@@ -163,7 +160,10 @@ impl Builder {
      * @throws IllegalArgumentException when {@code working_directory} is a relative path
      * @since 20.0.0
      */
-    fn current_working_directory(&mut self, working_directory: impl Into<std::path::PathBuf>) -> &mut Self {
+    fn current_working_directory(
+        &mut self,
+        working_directory: impl Into<std::path::PathBuf>,
+    ) -> &mut Self {
         let working_directory = working_directory.into();
         // Objects.requireNonNull(working_directory, "WorkingDirectory must be non null.");
         // if (!working_directory.isAbsolute()) {
@@ -172,11 +172,9 @@ impl Builder {
         // this.currentWorkingDirectory = working_directory;
         self
     }
-
 }
 
 impl Builder {
-
     /**
      * Creates a new context instance from the configuration provided in the builder. The same
      * context builder can be used to create multiple context instances.
@@ -326,7 +324,6 @@ impl Builder {
         // return ctx;
     }
 }
-
 
 /**
  * A polyglot context for Graal guest languages that allows to {@link #eval(Source) evaluate} code.
@@ -590,7 +587,7 @@ impl Builder {
  *
  * @since 19.0
  */
- #[allow(non_snake_case)]
+#[allow(non_snake_case)]
 struct Context {
     dispatch: AbstractContextDispatch,
     receiver: Object,
@@ -599,7 +596,7 @@ struct Context {
 }
 // TODO Context implements AutoCloseable
 
-struct Value{}
+struct Value {}
 struct Source {}
 impl Source {
     fn language(&self) -> Language {
@@ -640,7 +637,8 @@ impl Context {
      * @since 19.0
      */
     fn eval(&mut self, source: Source) -> Value {
-        self.dispatch.eval(self.receiver, source.language(), source)
+        self.dispatch
+            .eval(&mut self.receiver, source.language(), source)
     }
     /**
      * Evaluates a guest language code literal, using a provided {@link Language#getId() language
@@ -675,18 +673,18 @@ type Receiver = Object;
 struct AbstractContextDispatch {}
 
 impl AbstractContextDispatch {
-    fn eval(&mut self, receiver: Receiver, language: Language, source: Source) -> Value {
+    fn eval(&mut self, receiver: &Receiver, language: Language, source: Source) -> Value {
         todo!()
     }
-    fn parse(&mut self, receiver: Receiver, language: Language, source: Source) -> Value {
-        todo!()
-    }
-
-    fn get_polyglot_bindings(&self, receiver: Receiver) -> Value {
+    fn parse(&mut self, receiver: &Receiver, language: Language, source: Source) -> Value {
         todo!()
     }
 
-    fn get_bindings(&self, receiver: Receiver, language: Language) -> Value {
+    fn get_polyglot_bindings(&self, receiver: &Receiver) -> Value {
+        todo!()
+    }
+
+    fn get_bindings(&self, receiver: &Receiver, language: Language) -> Value {
         todo!()
     }
 }
@@ -694,31 +692,29 @@ impl AbstractContextDispatch {
 // take inspiration from https://github.com/chop0/graal-bindgen
 // for low level struct as they already impl them in rust
 
-
-
 impl Context {
-// @SuppressWarnings("unchecked")
-// <T> Context(AbstractContextDispatch dispatch, T receiver, Engine engine) {
-//     this.dispatch = dispatch;
-//     this.receiver = receiver;
-//     this.engine = engine;
-//     this.currentAPI = new Context(this);
-//     dispatch.setAPI(receiver, this);
-// }
+    // @SuppressWarnings("unchecked")
+    // <T> Context(AbstractContextDispatch dispatch, T receiver, Engine engine) {
+    //     this.dispatch = dispatch;
+    //     this.receiver = receiver;
+    //     this.engine = engine;
+    //     this.currentAPI = new Context(this);
+    //     dispatch.setAPI(receiver, this);
+    // }
 
-// private Context() {
-//     this.dispatch = null;
-//     this.receiver = null;
-//     this.engine = null;
-//     this.currentAPI = null;
-// }
+    // private Context() {
+    //     this.dispatch = null;
+    //     this.receiver = null;
+    //     this.engine = null;
+    //     this.currentAPI = null;
+    // }
 
-// private <T> Context(Context creatorAPI) {
-//     this.dispatch = creatorAPI.dispatch;
-//     this.receiver = creatorAPI.receiver;
-//     this.engine = creatorAPI.engine.currentAPI;
-//     this.currentAPI = null;
-// }
+    // private <T> Context(Context creatorAPI) {
+    //     this.dispatch = creatorAPI.dispatch;
+    //     this.receiver = creatorAPI.receiver;
+    //     this.engine = creatorAPI.engine.currentAPI;
+    //     this.currentAPI = null;
+    // }
 }
 
 impl Context {
@@ -748,9 +744,8 @@ impl Context {
      * @since 19.0
      */
     fn get_polyglot_bindings(&self) -> Value {
-        self.dispatch.get_polyglot_bindings(self.receiver)
+        self.dispatch.get_polyglot_bindings(&self.receiver)
     }
-
 
     /**
      * Returns a value that represents the top-most bindings of a language. The top most bindings of
@@ -766,10 +761,9 @@ impl Context {
      * @since 19.0
      */
     fn get_bindings(&self, language: Language) -> Value {
-        self.dispatch.get_bindings(self.receiver, language)
+        self.dispatch.get_bindings(&self.receiver, language)
     }
 }
-
 
 impl Context {
     /**
@@ -824,7 +818,8 @@ impl Context {
      * @since 20.2
      */
     fn parse(&mut self, source: Source) -> Value {
-        self.dispatch.parse(self.receiver, source.language(), source)
+        self.dispatch
+            .parse(&mut self.receiver, source.language(), source)
     }
     /**
      * Parses but does not evaluate a guest language code literal using a provided
@@ -870,9 +865,7 @@ impl Context {
     }
 }
 
-
 impl Context {
-
     // /**
     //  * Forces the initialization of a language. It is not necessary to explicitly initialize a
     //  * language, it will be initialized the first time it is used.
@@ -897,9 +890,7 @@ impl Context {
     // public void resetLimits() {
     //     dispatch.resetLimits(receiver);
     // }
-
 }
-
 
 impl Context {
     // /**
@@ -1253,13 +1244,11 @@ impl Context {
     // }
 }
 
-
-impl Context {
-}
+impl Context {}
 
 impl PartialEq for Context {
     fn eq(&self, other: &Self) -> bool {
-         self.receiver == other.receiver
+        self.receiver == other.receiver
     }
 }
 
@@ -1269,14 +1258,12 @@ impl Hash for Context {
     }
 }
 
-
 // public final class Context implements AutoCloseable {
 //     private void checkCreatorAccess(String operation) {
 //         if (this.currentAPI == null) {
 //             throw new IllegalStateException(String.format("Context instances that were received using Context.get() cannot be %s.", operation));
 //         }
 //     }
-
 
 //     /**
 //      * Creates a context with default configuration. This method is a shortcut for
