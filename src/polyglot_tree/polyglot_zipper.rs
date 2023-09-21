@@ -7,14 +7,168 @@ use super::util::InvalidArgumentError;
 
 use super::PolyglotTree;
 
-/// A PolyglotZipper is an object based on a PolyglotTree, which contains one of the tree's nodes.
-/// Zippers allow navigation of the tree and retrieval of node properties for analysis tasks.
+pub trait PolyglotCursor {
+    type N;
 
-#[derive(Default)]
-pub struct Test {
-    n: u32,
+    fn node(&self) -> Self::N;
+
+    fn goto_first_child(&mut self) -> Option<&mut Self>;
+
+    /// Move this cursor to the parent of its current node.
+    ///
+    /// This returns `true` if the cursor successfully moved, and returns `false`
+    /// if there was no parent node (the cursor was already on the root node).
+    fn goto_parent(&mut self) -> Option<&mut Self>;
+
+    /// Move this cursor to the next sibling of its current node.
+    ///
+    /// This returns `true` if the cursor successfully moved, and returns `false`
+    /// if there was no next sibling node.
+    fn goto_next_sibling(&mut self) -> Option<&mut Self>;
+
+    fn goto_nth_child(&mut self, i: usize) -> Option<&mut Self> {
+        self.goto_first_child()?;
+        for _ in 0..i {
+            self.goto_next_sibling()?;
+        }
+        Some(self)
+    }
 }
 
+pub(crate) struct PreOrder<'tree> {
+    cursor: tree_sitter::TreeCursor<'tree>,
+    state: VisitState,
+}
+#[derive(PartialEq, Eq)]
+enum VisitState {
+    Start,
+    Down,
+    Next,
+    Up,
+}
+
+impl<'tree> Iterator for PreOrder<'tree> {
+    type Item = Node<'tree>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.state == VisitState::Down {
+            if self.cursor.goto_first_child() {
+                self.state = VisitState::Down;
+            } else {
+                self.state = VisitState::Next;
+                return self.next();
+            }
+        } else if self.state == VisitState::Next {
+            if self.cursor.goto_next_sibling() {
+                self.state = VisitState::Down;
+            } else {
+                self.state = VisitState::Up;
+                return self.next();
+            }
+        } else if self.state == VisitState::Up {
+            if self.cursor.goto_parent() {
+                self.state = VisitState::Next;
+                return self.next(); // TODO caution, might stack overflow
+            } else {
+                // finish
+                //println!("ICI NEXT FAIT CRASH POLYGLOT USE");
+                return None;
+            }
+        } else if self.state == VisitState::Start {
+            self.state = VisitState::Down;
+            return self.next();
+        }
+        Some(self.cursor.node())
+    }
+}
+
+impl<'tree> PreOrder<'tree> {
+    pub fn new(tree: &'tree tree_sitter::Tree) -> Self {
+        let cursor = tree.walk();
+        let state = VisitState::Start;
+        Self { cursor, state }
+    }
+}
+
+impl<'tree> From<&'tree tree_sitter::Tree> for PreOrder<'tree> {
+    fn from(tree: &'tree tree_sitter::Tree) -> Self {
+        Self::new(tree)
+    }
+}
+
+pub(crate) struct PreOrder2<'tree> {
+    cursor: tree_sitter::TreeCursor<'tree>,
+    state: Direction,
+    started: bool,
+}
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum Direction {
+    Up,
+    Down,
+}
+
+impl Direction {
+    pub fn is_down(&self) -> bool {
+        self == &Direction::Down
+    }
+}
+
+impl<'tree> Iterator for PreOrder2<'tree> {
+    type Item = (Direction, Node<'tree>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.started {
+            self.started = true;
+            self.state = Direction::Down;
+        } else if self.state == Direction::Down {
+            if self.cursor.goto_first_child() {
+                self.state = Direction::Down;
+            } else {
+                self.state = Direction::Up;
+            }
+        } else if self.state == Direction::Up {
+            if self.cursor.goto_next_sibling() {
+                self.state = Direction::Down;
+            } else if self.cursor.goto_parent() {
+                self.state = Direction::Up;
+            } else {
+                return None;
+            }
+        }
+        Some((self.state, self.cursor.node()))
+    }
+}
+
+impl<'tree> PreOrder2<'tree> {
+    pub fn new(tree: &'tree tree_sitter::Tree) -> Self {
+        let cursor = tree.walk();
+        let state = Direction::Down;
+        Self {
+            cursor,
+            state,
+            started: false,
+        }
+    }
+    pub fn skip_subtree(&mut self) -> &mut Self {
+        if self.started {
+            self.started = true;
+            self.state = Direction::Up;
+        } else if self.state == Direction::Down {
+            self.state = Direction::Up;
+        }
+        self
+    }
+}
+
+impl<'tree> From<&'tree tree_sitter::Tree> for PreOrder2<'tree> {
+    fn from(tree: &'tree tree_sitter::Tree) -> Self {
+        Self::new(tree)
+    }
+}
+
+// A PolyglotZipper is an object based on a PolyglotTree, which contains one of the tree's nodes.
+// Zippers allow navigation of the tree and retrieval of node properties for analysis tasks.
 pub struct PolyglotZipper<'a, T: TextProvider<'a> = PolyglotTree> {
     tree: &'a T,
     node: TreeCursor<'a>,

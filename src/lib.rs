@@ -1,10 +1,10 @@
 //! # Polyglot AST
-//! 
+//!
 //! Principle / objectives
 //! - [ ] provide a simple API to parse a polyglot file and get his AST
 //! - [ ] provide a simple API to query the AST
 //! - [ ] provide a simple API to manipulate the AST
-//! 
+//!
 //! TODO
 //! - [ ] add a simple example building and using the Polyglote AST
 //! - [ ] add a simple processor that pretty prints the polyglot AST
@@ -24,6 +24,8 @@ pub mod tree_sitter_utils;
 /// This module contains errors types, the Language enum as well as a few conversions functions.
 pub mod util;
 
+pub mod builder;
+
 pub use polyglot_tree::polyglot_processor::{PolygotProcessor, TreePrinter};
 pub use polyglot_tree::polyglot_zipper::PolyglotZipper;
 pub use polyglot_tree::PolyglotTree;
@@ -42,8 +44,16 @@ pub use polyglot_tree::PolyglotTree;
 ///
 /// https://doc.rust-lang.org/reference/names/preludes.html
 pub mod prelude {
-    pub use crate::context::GlobalContext;
+    pub use super::Language;
+    pub use super::PolyglotAstBuilder;
+    pub use super::PolyglotTree;
+    pub use super::PolyglotZipper;
+    pub use super::TreePrinter;
+    use super::*;
+    pub use context::GlobalContext;
+    pub use polyglot_tree::polyglot_processor::PolyglotTreeSerializer;
 }
+pub use builder::PolyglotAstBuilder;
 
 /// An enumeration that represents all languages supported by this crate. Current options are Java and partial support for Python and JavaScript.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -124,7 +134,7 @@ impl RawParseResult {
         use crate::building::StuffPerLanguage;
         use building::PolyglotBuilding;
         match self.language {
-            Language::Python => todo!(),
+            Language::Python => Some(vec![]),
             Language::JavaScript => todo!(),
             Language::Java => {
                 let init = building::java::JavaBuilder::init(cst);

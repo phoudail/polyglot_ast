@@ -1,37 +1,15 @@
 //! A simple example building and using the Polyglote AST.
 
-use tree_sitter::{Node, Parser, Tree};
-
 use polyglot_ast::prelude::*;
-use polyglot_ast::Language;
-use polyglot_ast::PolyBuilder;
-use polyglot_ast::PolyStuff;
-use polyglot_ast::PolyglotTree;
-use polyglot_ast::TreePrinter;
 
-use std::path::PathBuf;
-
-/// A simple processor that pretty prints the polyglot AST.
 fn main() {
-    //GlobalContext;
+    dbg!(std::env::current_dir().unwrap());
+    let path = "TestSamples/JavaTest.java";
+    let polyglote_ast = PolyglotAstBuilder::set_entry_point(path)
+        .set_entry_lang(Language::Java)
+        .build()
+        .unwrap();
 
-    // for each file
-    // parse
-
-    
-    // query stuff 
-    todo!("a simple example building and using the Polyglot AST");
-   
-    //TODO: use a real file
-    let code = std::sync::Arc::from("print('hello')");
-    let language = Language::Python;
-       
-    let parse = PolyglotTree::parse(code, language);
-    
-    //let mut tree = PolyglotTree::new(parse);
-
-    //let mut tp = TreePrinter::new();
-    //tree.apply(&mut tp);
-    println!("{:?}", parse);
-    
+    let tree_printer = &mut PolyglotTreeSerializer::from(&polyglote_ast);
+    println!("{}", tree_printer);
 }

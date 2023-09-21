@@ -224,7 +224,7 @@ impl PolyglotTree {
     /// Applies the given processor to the tree, starting from the root of the tree.
     /// For more information, refer to the PolyglotProcessor trait documentation.
     pub fn apply(&self, processor: &mut impl polyglot_processor::PolygotProcessor) {
-        processor.process(polyglot_zipper::PolyglotZipper::<PolyglotTree>::new(self))
+        processor.process(polyglot_zipper::PolyglotZipper::<PolyglotTree>::new(self));
     }
 
     /// Internal function to get a node's source code.

@@ -17,15 +17,33 @@ use super::{
 #[derive(Debug, PartialEq, Eq)]
 pub enum UnSolvedPolyglotUse<Node> {
     // partially solved
-    EvalSource { name: Node },
+    EvalSource {
+        eval: Node,
+        name: Node,
+    },
     // partially solved
-    EvalBuilder { name: Node },
+    EvalBuilder {
+        call: Node,
+        name: Node,
+    },
     // can be evaluated
-    EvalInline { inline: Node, lang: Language },
+    EvalInline {
+        call: Node,
+        inline: Node,
+        lang: Language,
+    },
     // can be evaluated if referenced file can be evaluated
-    EvalPath { path: Node, lang: Language },
+    EvalPath {
+        call: Node,
+        path: Node,
+        lang: Language,
+    },
     // can be evaluated if referenced file can be evaluated
-    Import { path: Node, lang: Language },
+    Import {
+        call: Node,
+        path: Node,
+        lang: Language,
+    },
 }
 impl<Ref> UnSolvedPolyglotUse<Ref> {
     pub fn get_kind(&self) -> PolyglotKind {
@@ -46,18 +64,23 @@ impl<'tree> UnSolvedPolyglotUse<use_solver::Node<'tree>> {
         ana: &impl ReferenceAnalysis,
     ) -> PolyglotUse {
         match self {
-            UnSolvedPolyglotUse::EvalInline { inline, lang } => {
-                if inline.kind() == "string_litral" {
+            UnSolvedPolyglotUse::EvalInline {
+                call: eval,
+                inline,
+                lang,
+            } => {
+                if inline.kind() == "string_literal" {
                     use crate::tree_sitter_utils::TextProvider;
+                    dbg!(eval.id());
+                    let text = p.text(inline);
+                    let text = &text[1..text.len().saturating_sub(1)];
                     PolyglotUse {
                         language: *lang,
-                        position: inline.id(),
-                        aux: crate::building::Aux::EvalSource {
-                            code: p.text(inline).into(),
-                        },
+                        position: eval.id(),
+                        aux: crate::building::Aux::EvalSource { code: text.into() },
                     }
                 } else {
-                    todo!()
+                    todo!("{}", inline.kind())
                 }
             }
             _ => todo!(),
@@ -165,30 +188,19 @@ impl<'tree> PreOrder<'tree> {
     fn node(&self) -> Node<'tree> {
         self.cursor.node()
     }
-
-    //the visit function must use the next function to go to the next node
     fn visit(&mut self, cst: TreeSitterCST) -> Vec<Node> {
-        println!("PASSAGE DANS VISIT");
         let mut nodes = Vec::new();
-
         while let Some(node) = self.next() {
             dbg!(node);
             nodes.push(node);
         }
-        println!("FIN WHILE");
-
         return nodes;
-    }
-
-    fn display(&self, node: &PolyglotTree) {
-        dbg!("{}", node);
     }
 }
 
 impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
     type UnsolvedUse = UnSolvedPolyglotUse<Self::Node>;
     fn find_polyglot_uses(&self) -> Vec<Self::UnsolvedUse> {
-        println!("PASSAGE DANS FIND POLYGLOT USES");
         let mut uses = Vec::new();
         let tree = self.payload.cst;
 
@@ -252,7 +264,6 @@ impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
             // }
             //node.children()
         }
-        println!("FIN WHILE FIND POLYGLOT USES");
         return dbg!(uses);
     }
 
@@ -330,6 +341,7 @@ impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
                         dbg!(indirect);
                         let source = m.captures[1].node;
                         return Some(Ok(UnSolvedPolyglotUse::EvalInline {
+                            call: *node,
                             inline: source,
                             lang: crate::Language::Python,
                         }));
@@ -338,6 +350,7 @@ impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
                         let indirect_build = &m.captures[1].node;
                         dbg!(self.payload.node_to_code(indirect_build));
                         return Some(Ok(UnSolvedPolyglotUse::EvalBuilder {
+                            call: *node,
                             name: indirect_build.clone(),
                         }));
                     }
@@ -350,6 +363,7 @@ impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
                         dbg!(&lang, &code);
                         //todo!()
                         return Some(Ok(UnSolvedPolyglotUse::EvalInline {
+                            call: *node,
                             inline: code.clone(),
                             lang: crate::util::language_string_to_enum(&lang).unwrap(),
                         }));
@@ -399,6 +413,7 @@ impl<'tree, 'text> StuffPerLanguage for JavaBuilder<'tree, 'text> {
             // Some(Ok(r))
         } else if s == "getMember" {
             let r = UnSolvedPolyglotUse::Import {
+                call: todo!(),
                 path: todo!(),
                 lang: todo!(),
             };
@@ -462,7 +477,10 @@ impl<'tree, 'text> JavaBuilder<'tree, 'text> {
             // let name = self.payload.node_to_code(&parameter);
             // let name = name.to_string();
 
-            Some(UnSolvedPolyglotUse::EvalSource { name })
+            Some(UnSolvedPolyglotUse::EvalSource {
+                name,
+                eval: todo!(),
+            })
 
             // dbg!(name);
             // let a = {
@@ -1064,10 +1082,11 @@ mod test {
         assert_eq!(
             r#use,
             UnSolvedPolyglotUse::EvalBuilder {
+                call: poly_eval,
                 name: expected_ref_node
             }
         );
-        if let UnSolvedPolyglotUse::EvalBuilder { name } = r#use {
+        if let UnSolvedPolyglotUse::EvalBuilder { call: eval, name } = r#use {
             assert_eq!(name, expected_ref_node);
             let decl = meth.child(4).unwrap().child(2).unwrap();
             dbg!(&decl.to_sexp());
@@ -1117,6 +1136,7 @@ mod test {
         assert_eq!(
             r#use,
             Some(Ok(UnSolvedPolyglotUse::EvalInline {
+                call: poly_eval,
                 inline: poly_eval
                     .child_by_field_name("arguments")
                     .unwrap()
@@ -1220,11 +1240,12 @@ mod test {
         assert_eq!(
             r#use,
             UnSolvedPolyglotUse::EvalBuilder {
+                call: poly_eval,
                 name: expected_ref_node
             }
         );
         // r#use would have been resolved into builder_decl with a reference analysis
-        if let UnSolvedPolyglotUse::EvalBuilder { name } = r#use {
+        if let UnSolvedPolyglotUse::EvalBuilder { call: eval, name } = r#use {
             assert_eq!(name, expected_ref_node);
             let builder_decl = meth_body.child(2).unwrap();
             dbg!(&builder_decl.to_sexp());
@@ -1296,12 +1317,14 @@ mod test {
         assert_eq!(
             r#use,
             UnSolvedPolyglotUse::EvalInline {
+                call: poly_eval,
                 inline: expected_ref_node,
                 lang: crate::Language::Python,
             }
         );
 
         if let UnSolvedPolyglotUse::EvalInline {
+            call: poly_eval,
             inline: source,
             lang,
         } = r#use
@@ -1362,11 +1385,13 @@ mod test {
         assert_eq!(
             r#use,
             UnSolvedPolyglotUse::EvalInline {
+                call: poly_eval,
                 inline: expected_ref_node,
                 lang: crate::Language::Python,
             }
         );
         if let UnSolvedPolyglotUse::EvalInline {
+            call: eval,
             inline: source,
             lang,
         } = r#use
