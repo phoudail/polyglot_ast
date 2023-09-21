@@ -11,6 +11,8 @@ struct JavaScriptBuilder<'ctx, 'str> {
     ctx: &'ctx mut BuildingContext,
     source: &'src str,
 }
+
+// NOT YET IMPLEMENTED
 impl<'ctx,'str> super::PolyglotBuilding for JavaScriptBuilder<'ctx,'str> {
     type Node<'a> = tree_sitter::Node<'a>;
     type Ctx = BuildingContext;

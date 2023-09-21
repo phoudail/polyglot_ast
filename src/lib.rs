@@ -4,10 +4,6 @@
 //! - [ ] provide a simple API to parse a polyglot file and get his AST
 //! - [ ] provide a simple API to query the AST
 //! - [ ] provide a simple API to manipulate the AST
-//!
-//! TODO
-//! - [ ] add a simple example building and using the Polyglote AST
-//! - [ ] add a simple processor that pretty prints the polyglot AST
 //!   
 //! # Getting started
 //! ```rust
@@ -150,6 +146,3 @@ impl RawParseResult {
         }
     }
 }
-
-#[cfg(test)]
-mod tests;

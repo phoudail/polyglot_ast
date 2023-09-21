@@ -1,3 +1,12 @@
+//! File that contains the main building functions
+//! 
+//! This file has been created to facilitate the addition of new languages to the polyglot AST.
+//! 
+//! To add a new langage to PolylgotAST : 
+//! - add the language to the Language enum in the lib.rs and util.rs files
+//! - add a new file in the building folder named name_of_the_langage.rs
+//! - impl StuffPerLanguage for the new file
+
 use crate::{Language, PolyglotTree, SourceFilePath};
 
 pub(crate) mod java;
@@ -119,6 +128,7 @@ impl From<PolyglotUse> for PolyglotDefOrUse {
 }
 
 // 3 main kinds of polyglot elements
+//todo
 pub enum PolyglotKind {
     Eval,
     Import,
