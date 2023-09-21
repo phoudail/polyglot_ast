@@ -98,22 +98,24 @@ pub struct TreePrinterGlobal<'g> {
 
 impl<'g> TreePrinterGlobal<'g> {
     /// Initializes a new TreePrinterGlobal instance.
-    pub fn new(global: &'g crate::context::GlobalContext) -> TreePrinterGlobal<'g> {
-        TreePrinterGlobal {
-            stack: vec![],
-            global,
-            indent_level: 0,
-            result: String::new(),
-        }
+    pub fn new(global: std::sync::Arc<&crate::context::GlobalContext>) -> TreePrinterGlobal<'g> {
+        todo!("deprecated");
+        // TreePrinterGlobal {
+        //     stack: vec![],
+        //     global,
+        //     indent_level: 0,
+        //     result: String::new(),
+        // }
     }
 
     fn from(parent: &Self) -> TreePrinterGlobal {
-        TreePrinterGlobal {
-            stack: vec![],
-            global: parent.global.clone(),
-            indent_level: parent.indent_level,
-            result: String::new(),
-        }
+        todo!("deprecated");
+        // TreePrinterGlobal {
+        //     stack: vec![],
+        //     global: parent.global.clone(),
+        //     indent_level: parent.indent_level,
+        //     result: String::new(),
+        // }
     }
 
     /// Returns a pretty printed version of the last processed polyglot tree.
