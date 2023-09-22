@@ -1,0 +1,136 @@
+program
+ import_declaration
+  import : import
+  scoped_identifier
+   scoped_identifier
+    identifier : org
+    . : .
+    identifier : graalvm
+    . : .
+    identifier : polyglot
+   . : .
+   asterisk
+    * : *
+    ; : ;
+  class_declaration
+   modifiers
+    public : public
+    class : class
+    identifier : JavaTest
+    class_body
+     { : {
+     field_declaration
+      identifier : Context
+      variable_declarator
+       identifier : cx0
+       ; : ;
+      method_declaration
+       modifiers
+        public : public
+        static : static
+        void_type : void
+        identifier : main
+        formal_parameters
+         ( : (
+         formal_parameter
+          array_type
+           identifier : String
+           dimensions
+            [ : [
+            ] : ]
+           identifier : args
+          ) : )
+         block
+          { : {
+          local_variable_declaration
+           identifier : Context
+           variable_declarator
+            identifier : cx1
+            ; : ;
+           local_variable_declaration
+            identifier : Context
+            variable_declarator
+             identifier : cx2
+             = : =
+             method_invocation
+              identifier : Context
+              . : .
+              identifier : create
+              argument_list
+               ( : (
+               ) : )
+             ; : ;
+            try_with_resources_statement
+             try : try
+             resource_specification
+              ( : (
+              resource
+               identifier : Context
+               identifier : context
+               = : =
+               method_invocation
+                identifier : Context
+                . : .
+                identifier : create
+                argument_list
+                 ( : (
+                 ) : )
+               ) : )
+              block
+               { : {
+               expression_statement
+                polyglot_eval_call
+                 module
+                  expression_statement
+                   call
+                    print : print
+                    argument_list
+                     ( : (
+                     string
+                      string_start : '
+                      string_content : hello
+                      string_end : '
+                      ) : )
+                 ; : ;
+                local_variable_declaration
+                 identifier : Value
+                 variable_declarator
+                  identifier : bindings
+                  = : =
+                  method_invocation
+                   identifier : context
+                   . : .
+                   identifier : getPolyglotBindings
+                   argument_list
+                    ( : (
+                    ) : )
+                  ; : ;
+                 expression_statement
+                  polyglot_import_call
+                   identifier : bindings
+                   . : .
+                   identifier : getMember
+                   argument_list
+                    ( : (
+                    string_literal : "test"
+                    ) : )
+                   ; : ;
+                  } : }
+             expression_statement
+              polyglot_import_call
+               method_invocation
+                identifier : cx2
+                . : .
+                identifier : getPolyglotBindings
+                argument_list
+                 ( : (
+                 ) : )
+                . : .
+                identifier : getMember
+                argument_list
+                 ( : (
+                 string_literal : "null"
+                 ) : )
+               ; : ;
+              } : }
+       } : }
