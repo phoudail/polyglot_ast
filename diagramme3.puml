@@ -1,0 +1,19 @@
+@startuml
+participant PolyglotFinder
+participant RefAnalysis
+participant SourceFinder
+participant BuildFinder
+participant LanguageFinder
+participant CodeFinder
+
+PolyglotFinder -> RefAnalysis : ref(source1)
+RefAnalysis -> SourceFinder :decl(source1)
+SourceFinder -> BuildFinder
+BuildFinder -> LanguageFinder
+BuildFinder -> CodeFinder
+CodeFinder -> BuildFinder
+LanguageFinder -> BuildFinder
+BuildFinder -> SourceFinder
+SourceFinder -> RefAnalysis
+RefAnalysis -> PolyglotFinder
+@endmul
