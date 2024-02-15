@@ -112,8 +112,11 @@ program
                    identifier : getMember
                    argument_list
                     ( : (
-                    string_literal : "test"
-                    ) : )
+                    string_literal
+                     " : "
+                     string_fragment : test
+                     " : "
+                     ) : )
                    ; : ;
                   } : }
              expression_statement
@@ -129,8 +132,11 @@ program
                 identifier : getMember
                 argument_list
                  ( : (
-                 string_literal : "null"
-                 ) : )
+                 string_literal
+                  " : "
+                  string_fragment : null
+                  " : "
+                  ) : )
                ; : ;
               } : }
        } : }
